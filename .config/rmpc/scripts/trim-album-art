@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# RMPC custom album-art loader.  It trims empty borders (especially the
+# large white margins in downloaded covers), then limits the result to 800px.
+# On any failure, hand control back to RMPC's normal embedded/file loader.
+
+fallback() {
+    printf '%s\n' 'action: fallback'
+    exit 0
+}
+
+file=${FILE:-}
+[ -n "$file" ] || fallback
+
+case "$file" in
+    /*) source=$file ;;
+    *) source="$HOME/Music/$file" ;;
+esac
+
+[ -f "$source" ] || fallback
+directory=$(dirname "$source")
+cover=
+for candidate in cover.png cover.jpg cover.jpeg cover.webp Cover.png Cover.jpg Cover.jpeg Cover.webp; do
+    if [ -f "$directory/$candidate" ]; then
+        cover="$directory/$candidate"
+        break
+    fi
+done
+
+tmp=$(mktemp --suffix=.png "${XDG_RUNTIME_DIR:-/tmp}/rmpc-art.XXXXXX") || fallback
+trap 'rm -f "$tmp"' EXIT HUP INT TERM
+
+# If there is no sidecar cover, try the embedded picture in the audio file.
+# This lets the same trim pass fix the common MP3 white-border problem.
+if [ -z "$cover" ]; then
+    cover=$(mktemp --suffix=.jpg "${XDG_RUNTIME_DIR:-/tmp}/rmpc-embedded.XXXXXX") || fallback
+    trap 'rm -f "$tmp" "$cover"' EXIT HUP INT TERM
+    /usr/bin/ffmpeg -hide_banner -loglevel error -y -i "$source" -map 0:v:0 -frames:v 1 "$cover" || fallback
+fi
+
+/usr/bin/magick "$cover" -auto-orient -trim +repage -resize '800x800>' PNG:"$tmp" 2>/dev/null || fallback
+[ -s "$tmp" ] || fallback
+
+printf 'size: %s\naction: display\n' "$(stat -c '%s' "$tmp")"
+cat "$tmp"

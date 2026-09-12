@@ -1,0 +1,8 @@
+[user]
+	mail = todscissorhands@gmail.com
+	name = Tod
+	email = todscissorhands@gmail.com
+[credential]
+	helper = store
+[alias]
+	dotfiles = !git --git-dir=$HOME/.dotfiles --work-tree=$HOME

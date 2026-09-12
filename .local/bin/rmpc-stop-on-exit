@@ -1,0 +1,12 @@
+#!/bin/sh
+
+stop_playback() {
+    /usr/bin/rmpc stop >/dev/null 2>&1
+}
+
+trap stop_playback EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+/usr/bin/rmpc "$@"

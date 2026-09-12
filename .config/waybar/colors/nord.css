@@ -1,0 +1,18 @@
+/* Soft daylight surface with forest/sea-green type. */
+@define-color dark0 #2d4244;
+@define-color dark1 #3d5557;
+@define-color dark2 #587174;
+@define-color dark3 #819193;
+
+@define-color light0 #2d4244;
+@define-color light1 #3d5557;
+@define-color light2 #587174;
+
+@define-color light3 #247e70;
+@define-color light4 #3d9a84;
+@define-color light5 #5aa787;
+@define-color light6 #238b78;
+@define-color critical #bd6259;
+
+@define-color module-bg rgba(226, 233, 231, 0.88);
+@define-color module-border rgba(49, 82, 78, 0.16);

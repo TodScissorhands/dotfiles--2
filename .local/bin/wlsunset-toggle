@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+set -eu
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}"
+disabled_file="$state_dir/wlsunset-disabled"
+command=(wlsunset -t 3500 -T 6500 -S 06:30 -s 18:30)
+
+is_running() {
+  pgrep -x wlsunset >/dev/null
+}
+
+start() {
+  if ! test -e "$disabled_file" && ! is_running; then
+    exec "${command[@]}"
+  fi
+}
+
+case "${1:-}" in
+  --start)
+    start
+    ;;
+  --toggle)
+    mkdir -p "$state_dir"
+    if is_running; then
+      pkill -x wlsunset
+      touch "$disabled_file"
+    else
+      rm -f "$disabled_file"
+      "${command[@]}" >/dev/null 2>&1 &
+    fi
+    ;;
+  --status)
+    if is_running; then
+      printf '%s\n' '{"text":"☀","tooltip":"Warm light: on — click to disable","class":"enabled"}'
+    else
+      printf '%s\n' '{"text":"☀","tooltip":"Warm light: off — click to enable","class":"disabled"}'
+    fi
+    ;;
+  *)
+    echo "Usage: ${0##*/} --start|--toggle|--status" >&2
+    exit 2
+    ;;
+esac

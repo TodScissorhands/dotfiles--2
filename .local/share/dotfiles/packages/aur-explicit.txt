@@ -1,0 +1,5 @@
+claude-code
+oracle-instantclient-sqlplus
+packettracer
+yay-bin
+yay-bin-debug

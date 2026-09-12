@@ -1,0 +1,172 @@
+# Personal Sway configuration
+# Mod = Super/Windows key. Reload after editing with Mod+Shift+C.
+
+### Appearance and applications
+set $mod Mod4
+set $left h
+set $down j
+set $up k
+set $right l
+set $browser env MOZ_ENABLE_WAYLAND=1 firefox
+set $lock /home/tod/.local/bin/tod-lock
+set $term ghostty 
+set $menu fuzzel
+
+font pango:Sans 11
+gaps inner 2
+gaps outer 2
+default_border pixel 1
+default_floating_border normal 2
+smart_gaps off
+smart_borders on
+focus_follows_mouse no
+focus_on_window_activation focus
+# Keep workspace number keys predictable: Super+1 always stays on workspace 1.
+workspace_auto_back_and_forth no
+
+client.focused          #89b4fa #89b4fa #1e1e2e #89b4fa #89b4fa
+client.focused_inactive #45475a #45475a #cdd6f4 #45475a #45475a
+client.unfocused        #313244 #313244 #a6adc8 #313244 #313244
+client.urgent           #f38ba8 #f38ba8 #1e1e2e #f38ba8 #f38ba8
+client.placeholder      #313244 #313244 #cdd6f4 #313244 #313244
+
+### Outputs and input
+# A 13-inch 1080p laptop is physically dense; make every Wayland app and
+# Sway's own interface 25% larger.
+output * scale 1.25
+
+input type:touchpad {
+    tap enabled
+    natural_scroll disabled
+    dwt enabled
+    middle_emulation enabled
+}
+
+# Three-finger trackpad swipes switch between workspaces.
+bindgesture swipe:3:left workspace next
+bindgesture swipe:3:right workspace prev
+
+### Startup
+exec --no-startup-id swayidle -w \
+    before-sleep '$lock'
+# The laptop remains unlocked while idle. Manual locking remains available
+# with Super+Escape; the lock wrapper hibernates after 10 minutes locked.
+bindswitch --locked lid:on exec $lock
+exec_always --no-startup-id /home/tod/.config/fish/scripts/wallpaper-ctl.fish restore
+exec_always --no-startup-id sh -c 'pkill -x udiskie; exec udiskie --tray'
+exec_always --no-startup-id sh -c 'pkill -x waybar; exec waybar'
+exec_always --no-startup-id /home/tod/.local/bin/wlsunset-toggle --start
+
+### Core controls
+bindsym $mod+Return exec $term
+bindsym $mod+m exec $term -e rmpc-stop-on-exit
+bindsym $mod+d exec $menu
+bindsym $mod+Shift+y exec $term -e yazi
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit Sway?' -B 'Yes, exit' 'swaymsg exit'
+bindsym $mod+Escape exec $lock
+bindsym --locked XF86PowerOff exec swaynag -t warning -m 'Power off this laptop?' -B 'Cancel' true -B 'Power off' 'systemctl poweroff'
+bindsym $mod+Ctrl+p exec pavucontrol
+# Wallpaper picker: Super+Shift+W opens Yazi; Super+Ctrl+W advances the
+# selected theme's images. Super+W remains the tabbed-layout binding below.
+bindsym $mod+Shift+w exec /home/tod/.config/fish/scripts/wallpaper-picker.fish
+bindsym $mod+Ctrl+w exec /home/tod/.config/fish/scripts/wallpaper-next.fish
+
+# Ghostty's GTK backend ignores a custom class/app_id; title matching is used
+# for the dedicated Yazi wallpaper picker instead.
+for_window [title="Wallpaper Picker"] floating enable, resize set width 60 ppt height 60 ppt, move position center
+for_window [app_id="termfilechooser"] floating enable, resize set width 55 ppt height 65 ppt, move position center
+for_window [title="FileUploadPicker"] floating enable, resize set width 60 ppt height 60 ppt, move position center
+
+# Focus and move windows
+bindsym $mod+$left focus left
+bindsym $mod+$down focus down
+bindsym $mod+$up focus up
+bindsym $mod+$right focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+bindsym $mod+Shift+$left move left
+bindsym $mod+Shift+$down move down
+bindsym $mod+Shift+$up move up
+bindsym $mod+Shift+$right move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Workspaces
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+0 workspace number 10
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Shift+0 move container to workspace number 10
+bindsym $mod+Tab workspace back_and_forth
+
+# Layout, floating windows, and scratchpad
+bindsym $mod+b splith
+bindsym $mod+v splitv
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+bindsym $mod+f exec $browser
+bindsym $mod+Shift+f fullscreen toggle
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+bindsym $mod+a focus parent
+floating_modifier $mod normal
+bindsym $mod+Shift+minus move scratchpad
+bindsym $mod+minus scratchpad show
+
+mode "resize" {
+    bindsym $left resize shrink width 10 px or 10 ppt
+    bindsym $down resize grow height 10 px or 10 ppt
+    bindsym $up resize shrink height 10 px or 10 ppt
+    bindsym $right resize grow width 10 px or 10 ppt
+    bindsym Left resize shrink width 10 px or 10 ppt
+    bindsym Down resize grow height 10 px or 10 ppt
+    bindsym Up resize shrink height 10 px or 10 ppt
+    bindsym Right resize grow width 10 px or 10 ppt
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+r mode "resize"
+
+### Hardware keys and screenshots
+bindsym --locked XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
+bindsym --locked XF86AudioLowerVolume exec wpctl set-volume -l 2.0 @DEFAULT_AUDIO_SINK@ 5%-
+bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume -l 2.0 @DEFAULT_AUDIO_SINK@ 5%+
+bindsym --locked XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle
+bindsym --locked XF86AudioPlay exec --no-startup-id /usr/bin/rmpc togglepause
+bindsym --locked XF86AudioPause exec --no-startup-id /usr/bin/rmpc togglepause
+bindsym --locked XF86AudioPrev exec --no-startup-id /usr/bin/rmpc prev
+bindsym --locked XF86AudioNext exec --no-startup-id /usr/bin/rmpc next
+bindsym --locked XF86AudioStop exec --no-startup-id /usr/bin/rmpc stop
+# RMPC/MPD playback controls on the function row.
+bindsym --locked F9  exec --no-startup-id /usr/bin/rmpc play
+bindsym --locked F10 exec --no-startup-id /usr/bin/rmpc togglepause
+bindsym --locked F11 exec --no-startup-id /usr/bin/rmpc next
+bindsym --locked XF86MonBrightnessDown exec brightnessctl set 5%-
+bindsym --locked XF86MonBrightnessUp exec brightnessctl set +5%
+# Screenshots: save a PNG and copy that image to the Wayland clipboard.
+bindsym $mod+p exec sh -c 'dir=/home/tod/Pictures/Screenshots; mkdir -p "$dir"; file="$dir/Screenshot-$(date +%F-%H%M%S).png"; grim -g "$(slurp)" "$file" && wl-copy --type image/png < "$file"'
+bindsym $mod+Shift+p exec sh -c 'dir=/home/tod/Pictures/Screenshots; mkdir -p "$dir"; file="$dir/Screenshot-$(date +%F-%H%M%S).png"; grim "$file" && wl-copy --type image/png < "$file"'
+
+include /etc/sway/config.d/*

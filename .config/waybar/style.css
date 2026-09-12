@@ -1,0 +1,157 @@
+@import "colors/nord.css";
+
+* {
+    all: unset;
+    font-family: "GeistMono Nerd Font Mono", "Noto Sans Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+window#waybar {
+    background: transparent;
+    color: @dark0;
+}
+
+#left,
+#clock,
+#right {
+    background-color: @module-bg;
+    border: 1px solid @module-border;
+    border-radius: 999px;
+    box-shadow: 0 1px 4px rgba(42, 58, 69, 0.10);
+}
+
+#left {
+    margin-left: 6px;
+    padding: 1px 10px;
+}
+#clock {
+    padding: 1px 16px;
+    color: @light4;
+}
+#right {
+    margin-right: 12px;
+    padding: 1px 10px;
+}
+
+#workspaces button {
+    background: transparent;
+    color: @dark3;
+    border-radius: 0;
+    font-size: 11px;
+    margin: 0 2px;
+    padding: 0 4px 1px;
+    min-width: 13px;
+    transition: none;
+}
+
+#workspaces button.visible {
+    color: @dark2;
+}
+
+#workspaces button.focused {
+    color: @light3;
+    border-bottom: 2px solid @light3;
+}
+
+#workspaces button.active {
+    color: @light6;
+    border-bottom: 1px solid @light6;
+}
+
+#workspaces button.urgent {
+    color: @critical;
+    border-bottom: 2px solid @critical;
+}
+
+#workspaces button:hover {
+    color: @light4;
+}
+
+#custom-power,
+#mpris,
+#pulseaudio,
+#bluetooth,
+#network,
+#battery,
+#custom-power-draw,
+#cpu,
+#memory,
+#temperature {
+    margin: 0 2px;
+    padding: 0 5px;
+}
+
+#custom-power {
+    color: @light5;
+    padding-left: 3px;
+}
+#mpris {
+    color: @light5;
+}
+#pulseaudio {
+    color: @light3;
+}
+#bluetooth {
+    color: @light4;
+}
+#network {
+    color: @light6;
+}
+#battery {
+    color: @light3;
+}
+#custom-power-draw {
+    color: @light6;
+}
+#cpu {
+    color: @light4;
+}
+#memory {
+    color: @light5;
+}
+#temperature {
+    color: @light3;
+}
+
+#mpris.paused,
+#pulseaudio.muted,
+#bluetooth.off,
+#bluetooth.disabled,
+#bluetooth.disconnected,
+#network.disconnected {
+    color: @dark3;
+}
+
+#battery.warning {
+    color: @light5;
+}
+
+#battery.critical,
+#temperature.critical {
+    color: @critical;
+}
+
+#battery.charging,
+#network.ethernet {
+    color: @light6;
+}
+
+tooltip {
+    background-color: rgba(45, 66, 68, 0.97);
+    border: 1px solid rgba(90, 167, 135, 0.45);
+    border-radius: 12px;
+    padding: 8px 12px;
+}
+
+tooltip label {
+    color: #e2e9e1;
+    padding: 2px 8px;
+    font-family: "GeistMono Nerd Font Mono", "Noto Sans Mono", monospace;
+    font-size: 12px;
+}
+
+#clock tooltip label {
+    font-size: 11px;
+    font-weight: 600;
+}

@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# Avoid nesting another lock screen when swayidle invokes this before sleep.
+if pgrep -x swaylock >/dev/null 2>&1; then
+    exit 0
+fi
+
+hibernate_pid=''
+cleanup() {
+    if [ -n "$hibernate_pid" ]; then
+        kill "$hibernate_pid" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM
+
+# This timer is cancelled automatically when swaylock exits (unlock).
+(
+    sleep 600
+    if pgrep -x swaylock >/dev/null 2>&1; then
+        systemctl hibernate
+    fi
+) &
+hibernate_pid=$!
+
+# Do not fork: keeping this process attached lets the EXIT trap cancel the
+# hibernation timer immediately when the user unlocks.
+swaylock -C /home/tod/.config/swaylock/config
