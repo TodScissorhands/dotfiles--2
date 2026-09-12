@@ -10,7 +10,7 @@ set $right l
 set $browser env MOZ_ENABLE_WAYLAND=1 firefox
 set $lock /home/tod/.local/bin/tod-lock
 set $term ghostty 
-set $menu wmenu-run
+set $menu fuzzel
 
 font pango:Sans 11
 gaps inner 2
