@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Run RMPC tied to its Sway/Ghostty window. Some terminal-close paths do not
+# forward a signal to child processes, so watch the window and stop MPD when
+# it disappears.
+/usr/bin/rmpc "$@" &
+child=$!
+
+stop_and_exit() {
+    kill "$child" 2>/dev/null || true
+    /usr/bin/rmpc stop >/dev/null 2>&1 || true
+    wait "$child" 2>/dev/null || true
+}
+trap stop_and_exit EXIT HUP INT TERM
+
+# Give Ghostty/Sway time to register the window before checking it.
+sleep 1
+while kill -0 "$child" 2>/dev/null; do
+    if ! swaymsg -t get_tree 2>/dev/null | grep -Fq '"name": "rmpc-stop-on-exit"'; then
+        exit 0
+    fi
+    sleep 0.5
+done
+wait "$child"

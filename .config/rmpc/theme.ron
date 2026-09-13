@@ -6,6 +6,7 @@
     show_song_table_header: false,
     draw_borders: true,
     format_tag_separator: " | ",
+    multiple_tag_resolution_strategy: First,
     song_table_album_separator: Underline,
     browser_column_widths: [20, 38, 42],
     background_color: None,
@@ -52,7 +53,7 @@
     tab_bar: (
         enabled: true,
         active_style: (fg: "#07191c", bg: "#72d7ce", modifiers: "Bold"),
-        inactive_style: (fg: "#b9d4d6", bg: "#102b2f"),
+        inactive_style: (fg: "#6f969a", bg: "#07191c"),
     ),
     lyrics: (
         timestamp: false
@@ -300,9 +301,14 @@
                 (kind: Text(" tracks  ·  "), style: (fg: "#527177")),
                 (kind: Property(Status(QueueTimeTotal())), style: (fg: "#d7e6e8")),
                 (kind: Text("  ·  "), style: (fg: "#527177")),
+                (kind: Text("Left "), style: (fg: "#72d7ce", modifiers: "Bold")),
+                (kind: Property(Status(QueueTimeRemaining())), style: (fg: "#d7e6e8")),
+                (kind: Text("  ·  "), style: (fg: "#527177")),
                 (kind: Text("Bitrate "), style: (fg: "#72d7ce", modifiers: "Bold")),
                 (kind: Property(Status(Bitrate)), style: (fg: "#d7e6e8")),
-                (kind: Text(" kbps"), style: (fg: "#527177")),
+                (kind: Text(" kbps  ·  "), style: (fg: "#527177")),
+                (kind: Property(Status(SampleRate())), style: (fg: "#d7e6e8")),
+                (kind: Text(" Hz"), style: (fg: "#527177")),
             ], align: Center,
         )),
         "header_left": Split(

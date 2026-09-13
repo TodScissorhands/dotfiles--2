@@ -59,7 +59,7 @@ exec_always --no-startup-id /home/tod/.local/bin/wlsunset-toggle --start
 
 ### Core controls
 bindsym $mod+Return exec $term
-bindsym $mod+m exec $term -e rmpc-stop-on-exit
+bindsym $mod+m exec --no-startup-id /home/tod/.local/bin/rmpc-launch
 bindsym $mod+d exec $menu
 bindsym $mod+Shift+y exec $term -e yazi
 bindsym $mod+Shift+q kill
