@@ -18,10 +18,10 @@
     preview_metadata_group_style: (fg: "#72d7ce", modifiers: "Bold"),
     highlighted_item_style: (fg: "#72d7ce", modifiers: "Bold"),
     current_item_style: (fg: "#07191c", bg: "#72d7ce", modifiers: "Bold"),
-    borders_style: (fg: "#27535a"),
+    borders_style: (fg: "#376b72"),
     highlight_border_style: (fg: "#72d7ce"),
     symbols: (
-        song: "󰝚 ",
+        song: " ",
         dir: " ",
         playlist: "󰲂 ",
         marker: "* ",
@@ -95,15 +95,17 @@
         panes: [
             (
                 size: "3",
+                borders: "TOP | BOTTOM",
                 pane: Pane(Tabs),
             ),
             (
-                size: "4",
+                size: "3",
+                borders: "ALL",
                 pane: Split(
                     direction: Vertical,
                     panes: [
                         (
-                            size: "2",
+                            size: "1",
                             pane: Split(
                                 direction: Horizontal,
                                 panes: [
@@ -114,7 +116,7 @@
                             ),
                         ),
                         (
-                            size: "2",
+                            size: "1",
                             pane: Split(
                                 direction: Horizontal,
                                 panes: [
@@ -215,9 +217,9 @@
                             off_style: (fg: "#76c4e0", modifiers: "Dim"),
                         )))),
                         (kind: Property(Status(ConsumeV2(
-                            on_label: "c",
-                            off_label: "c",
-                            oneshot_label: "c",
+                            on_label: "",
+                            off_label: "",
+                            oneshot_label: "",
                             on_style: (fg: "#e2ca7b", modifiers: "Bold"),
                             off_style: (fg: "#76c4e0", modifiers: "Dim"),
                             oneshot_style: (fg: "#e48786", modifiers: "Dim"),
@@ -248,9 +250,9 @@
         "header_state": Pane(Property(
             content: [
                 (kind: Property(Status(StateV2(
-                    playing_label: "▶ ",
-                    paused_label: "Ⅱ ",
-                    stopped_label: "■ "
+                    playing_label: " ",
+                    paused_label: " ",
+                    stopped_label: " "
                 ))), style: (fg: "#72d7ce", modifiers: "Bold")),
             ], align: Left,
         )),
@@ -262,7 +264,22 @@
         )),
         "header_volume": Pane(Property(
             content: [
-                (kind: Text("Vol: "), style: (fg: "#72d7ce", modifiers: "Bold")),
+                (kind: Text("[") , style: (fg: "#527177")),
+                (kind: Property(Status(RepeatV2(
+                    on_label: "",
+                    off_label: "",
+                    on_style: (fg: "#e2ca7b", modifiers: "Bold"),
+                    off_style: (fg: "#527177", modifiers: "Dim"),
+                )))),
+                (kind: Text(" "), style: (fg: "#527177")),
+                (kind: Property(Status(RandomV2(
+                    on_label: "",
+                    off_label: "",
+                    on_style: (fg: "#e2ca7b", modifiers: "Bold"),
+                    off_style: (fg: "#527177", modifiers: "Dim"),
+                )))),
+                (kind: Text("]  "), style: (fg: "#527177")),
+                (kind: Text("󰕾 "), style: (fg: "#72d7ce", modifiers: "Bold")),
                 (kind: Property(Status(Volume)), style: (fg: "#72d7ce", modifiers: "Bold")),
                 (kind: Text("% "), style: (fg: "#72d7ce", modifiers: "Bold")),
             ], align: Right,
@@ -280,20 +297,7 @@
                     default: (kind: Text("Unknown Artist"), style: (fg: "#e48786", modifiers: "Bold")))
             ], align: Center, scroll_speed: 1,
         )),
-        "header_states": Pane(Property(
-            content: [
-                (kind: Property(Status(RepeatV2(
-                    on_label: "R", off_label: "r",
-                    on_style: (fg: "#e2ca7b", modifiers: "Bold"),
-                    off_style: (fg: "#76c4e0", modifiers: "Dim"),
-                )))),
-                (kind: Property(Status(RandomV2(
-                    on_label: "X", off_label: "x",
-                    on_style: (fg: "#e2ca7b", modifiers: "Bold"),
-                    off_style: (fg: "#76c4e0", modifiers: "Dim"),
-                )))),
-            ], align: Right,
-        )),
+        "header_states": Pane(Empty()),
         "footer": Pane(Property(
             content: [
                 (kind: Text("Queue "), style: (fg: "#72d7ce", modifiers: "Bold")),

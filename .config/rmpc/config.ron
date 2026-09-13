@@ -158,13 +158,13 @@
                 panes: [
                     (
                         size: "60%",
-                        borders: "ALL",
+                        borders: "RIGHT",
                         border_symbols: Rounded,
                         pane: Pane(Queue),
                     ),
                     (
                         size: "40%",
-                        borders: "ALL",
+                        borders: "NONE",
                         border_symbols: Rounded,
                         pane: Pane(AlbumArt),
                     ),
@@ -173,32 +173,32 @@
         ),
         (
             name: "Directories",
-            borders: "ALL",
+            borders: "NONE",
             border_symbols: Rounded,
             pane: Split(
                 size: "100%",
                 direction: Vertical,
-                panes: [(pane: Pane(Directories), size: "100%", borders: "ALL", border_symbols: Rounded)],
+                panes: [(pane: Pane(Directories), size: "100%", borders: "NONE")],
             )
         ),
         (
             name: "Playlists",
-            borders: "ALL",
+            borders: "NONE",
             border_symbols: Rounded,
             pane: Split(
                 size: "100%",
                 direction: Vertical,
-                panes: [(pane: Pane(Playlists), size: "100%", borders: "ALL", border_symbols: Rounded)],
+                panes: [(pane: Pane(Playlists), size: "100%", borders: "NONE")],
             )
         ),
         (
             name: "Search",
-            borders: "ALL",
+            borders: "NONE",
             border_symbols: Rounded,
             pane: Split(
                 size: "100%",
                 direction: Vertical,
-                panes: [(pane: Pane(Search), size: "100%", borders: "ALL", border_symbols: Rounded)],
+                panes: [(pane: Pane(Search), size: "100%", borders: "NONE")],
             )
         ),
     ],
