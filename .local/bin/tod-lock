@@ -24,4 +24,4 @@ hibernate_pid=$!
 
 # Do not fork: keeping this process attached lets the EXIT trap cancel the
 # hibernation timer immediately when the user unlocks.
-swaylock -C /home/tod/.config/swaylock/config
+swaylock -C /home/tod/.cache/wal/swaylock

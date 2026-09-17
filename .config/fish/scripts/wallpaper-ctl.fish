@@ -65,23 +65,54 @@ function ensure_awww
     fail "awww-daemon did not become ready"
 end
 
-function apply_home
+function apply_home --argument-names selected_image
     set -l images (theme_images "$current_theme")
     set -l image_count (count $images)
     test "$image_count" -gt 0; or fail "theme '$current_theme' has no supported images in home/"
 
     set -g home_index (normalise_index "$home_index" "$image_count")
-    set -l array_index (math "$home_index + 1")
     ensure_awww
     # Verified awww syntax: `awww img [OPTIONS] <path>`.
-    awww img --transition-type fade --transition-duration 1 "$images[$array_index]"
+    awww img --transition-type fade --transition-duration 0.5 "$selected_image"
         or fail "awww could not set the desktop image"
 end
 
 function apply_and_sync
-    apply_home
+    set -l selected_image (current_image)
+    require_command wal
+    command wal -i "$selected_image" --cols16 darken -n -e
+        or fail "pywal16 could not generate the color scheme"
+    command python3 "$HOME/.config/wal/semantic-colors.py"
+        or fail "semantic-colors.py could not generate semantic colors"
+    
+    # Live-reload rmpc theme if it is currently running (fails silently if closed)
+    command rmpc remote set theme "$HOME/.cache/wal/rmpc-theme.ron" >/dev/null 2>&1
+    apply_home "$selected_image"
     save_state
     "$lock_sync"; or fail "could not mirror the desktop image to the lockscreen"
+    if set -q SWAYSOCK
+        swaymsg reload >/dev/null; or fail "could not reload Sway after pywal16 generation"
+    end
+    schedule_next_prewarm
+end
+
+function schedule_next_prewarm
+    set -l images (theme_images "$current_theme")
+    set -l image_count (count $images)
+    test "$image_count" -gt 0; or return
+    set -l next_index (normalise_index (math "$home_index + 1") "$image_count")
+    set -l array_index (math "$next_index + 1")
+    set -l next_image "$images[$array_index]"
+    command /home/tod/.config/fish/scripts/wallpaper-prewarm.py "$next_image" >/dev/null 2>&1 &
+end
+
+function current_image
+    set -l images (theme_images "$current_theme")
+    set -l image_count (count $images)
+    test "$image_count" -gt 0; or fail "theme '$current_theme' has no supported images in home/"
+    set -g home_index (normalise_index "$home_index" "$image_count")
+    set -l array_index (math "$home_index + 1")
+    echo "$images[$array_index]"
 end
 
 function set_selection --argument-names theme index

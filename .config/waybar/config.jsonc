@@ -4,6 +4,7 @@
   "height": 22,
   "margin-top": 5,
   "spacing": 0,
+  "reload_style_on_change": true,
 
   "modules-left": ["group/left"],
   "modules-center": ["clock"],
@@ -91,7 +92,7 @@
   "custom/warm-light": {
     "exec": "/home/tod/.local/bin/wlsunset-toggle --status",
     "return-type": "json",
-    "interval": 2,
+    "interval": 10,
     "on-click": "/home/tod/.local/bin/wlsunset-toggle --toggle"
   },
   "custom/power": {

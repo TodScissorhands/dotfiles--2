@@ -1,4 +1,4 @@
-@import "colors/nord.css";
+@import url("/home/tod/.cache/wal/waybar.css");
 
 * {
     all: unset;
@@ -9,7 +9,7 @@
 
 window#waybar {
     background: transparent;
-    color: @dark0;
+    color: @light0;
 }
 
 #left,
@@ -18,7 +18,7 @@ window#waybar {
     background-color: @module-bg;
     border: 1px solid @module-border;
     border-radius: 999px;
-    box-shadow: 0 1px 4px rgba(42, 58, 69, 0.10);
+    box-shadow: 0 1px 4px alpha(@dark0, 0.10);
 }
 
 #left {
@@ -36,7 +36,7 @@ window#waybar {
 
 #workspaces button {
     background: transparent;
-    color: @dark3;
+    color: @light2;
     border-radius: 0;
     font-size: 11px;
     margin: 0 2px;
@@ -46,7 +46,7 @@ window#waybar {
 }
 
 #workspaces button.visible {
-    color: @dark2;
+    color: @light1;
 }
 
 #workspaces button.focused {
@@ -120,7 +120,7 @@ window#waybar {
 #bluetooth.disabled,
 #bluetooth.disconnected,
 #network.disconnected {
-    color: @dark3;
+    color: @light2;
 }
 
 #battery.warning {
@@ -138,14 +138,14 @@ window#waybar {
 }
 
 tooltip {
-    background-color: rgba(45, 66, 68, 0.97);
-    border: 1px solid rgba(90, 167, 135, 0.45);
+    background-color: alpha(@module-bg, 0.97);
+    border: 1px solid alpha(@light3, 0.45);
     border-radius: 12px;
     padding: 8px 12px;
 }
 
 tooltip label {
-    color: #e2e9e1;
+    color: @light1;
     padding: 2px 8px;
     font-family: "GeistMono Nerd Font Mono", "Noto Sans Mono", monospace;
     font-size: 12px;

@@ -24,11 +24,7 @@ focus_on_window_activation focus
 # Keep workspace number keys predictable: Super+1 always stays on workspace 1.
 workspace_auto_back_and_forth no
 
-client.focused          #89b4fa #89b4fa #1e1e2e #89b4fa #89b4fa
-client.focused_inactive #45475a #45475a #cdd6f4 #45475a #45475a
-client.unfocused        #313244 #313244 #a6adc8 #313244 #313244
-client.urgent           #f38ba8 #f38ba8 #1e1e2e #f38ba8 #f38ba8
-client.placeholder      #313244 #313244 #cdd6f4 #313244 #313244
+include /home/tod/.cache/wal/sway-colors
 
 ### Outputs and input
 # A 13-inch 1080p laptop is physically dense; make every Wayland app and
@@ -52,14 +48,14 @@ exec --no-startup-id swayidle -w \
 # The laptop remains unlocked while idle. Manual locking remains available
 # with Super+Escape; the lock wrapper hibernates after 10 minutes locked.
 bindswitch --locked lid:on exec $lock
-exec_always --no-startup-id /home/tod/.config/fish/scripts/wallpaper-ctl.fish restore
-exec_always --no-startup-id sh -c 'pkill -x udiskie; exec udiskie --tray'
-exec_always --no-startup-id sh -c 'pkill -x waybar; exec waybar'
-exec_always --no-startup-id /home/tod/.local/bin/wlsunset-toggle --start
+exec --no-startup-id /home/tod/.config/fish/scripts/wallpaper-ctl.fish restore
+exec --no-startup-id udiskie --tray
+exec --no-startup-id waybar
+exec --no-startup-id /home/tod/.local/bin/wlsunset-toggle --start
 
 ### Core controls
 bindsym $mod+Return exec $term
-bindsym $mod+m exec $term -e rmpc-stop-on-exit
+bindsym $mod+m exec --no-startup-id /home/tod/.local/bin/rmpc-launch
 bindsym $mod+d exec $menu
 bindsym $mod+Shift+y exec $term -e yazi
 bindsym $mod+Shift+q kill
@@ -72,6 +68,15 @@ bindsym $mod+Ctrl+p exec pavucontrol
 # selected theme's images. Super+W remains the tabbed-layout binding below.
 bindsym $mod+Shift+w exec /home/tod/.config/fish/scripts/wallpaper-picker.fish
 bindsym $mod+Ctrl+w exec /home/tod/.config/fish/scripts/wallpaper-next.fish
+
+# warpd pointer control (Wayland: standalone, compositor-launched modes).
+# There is intentionally no `exec warpd` daemon here: each invocation owns
+# its grab and exits when its selected mode is complete.
+bindsym $mod+Mod1+x exec /home/tod/.local/bin/warpd-sway --hint --oneshot --click 1
+bindsym $mod+Mod1+c exec /home/tod/.local/bin/warpd-sway --normal
+bindsym $mod+Mod1+g exec /home/tod/.local/bin/warpd-sway --grid
+# Emergency recovery if a warpd overlay stops accepting keyboard input.
+bindsym --locked $mod+Mod1+Escape exec pkill -KILL -x warpd
 
 # Ghostty's GTK backend ignores a custom class/app_id; title matching is used
 # for the dedicated Yazi wallpaper picker instead.

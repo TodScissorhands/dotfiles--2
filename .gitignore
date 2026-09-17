@@ -1,0 +1,5 @@
+# Prevent generated Pywal16 runtime artifacts from being committed
+/.cache/wal/
+
+# Prevent Stage backups from being committed
+/.config/wal/backups-*/

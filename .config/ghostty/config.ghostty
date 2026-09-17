@@ -1,34 +1,10 @@
 font-family = GeistMono Nerd Font Mono
-font-size = 13
+font-size = 9
 confirm-close-surface = false
 scrollbar = never
 
-# Deep harbor: near-black blue-green with cool, high-contrast accents.
-background = #07191c
-foreground = #d7e6e8
+# pywal16 owns the generated colors in ~/.cache/wal/ghostty.conf.
+config-file = /home/tod/.cache/wal/ghostty.conf
 background-opacity = 0.80
 background-opacity-cells = true
-cursor-color = #72d7ce
-selection-background = #174b52
-selection-foreground = #effafa
 window-theme = ghostty
-window-titlebar-background = #0a2226
-window-titlebar-foreground = #b9d4d6
-
-# Keep all ANSI colors in the ocean/forest range—no purple accents.
-palette = 0=#102b2f
-palette = 1=#d46f70
-palette = 2=#54b897
-palette = 3=#cfb364
-palette = 4=#4ea5ca
-palette = 5=#3f918c
-palette = 6=#62c9c5
-palette = 7=#c7d9da
-palette = 8=#527177
-palette = 9=#e48786
-palette = 10=#75d4af
-palette = 11=#e2ca7b
-palette = 12=#76c4e0
-palette = 13=#63b9aa
-palette = 14=#8ae0d7
-palette = 15=#f0fbfb
