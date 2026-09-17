@@ -15,6 +15,7 @@ btrfs-progs
 cage
 calibre
 clang
+cliphist
 code
 docker
 efibootmgr

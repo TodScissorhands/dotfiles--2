@@ -1,0 +1,17 @@
+#!/bin/sh
+# System control menu — adapted from BreadOnPenguins/scripts shortcuts-menus/sys.
+# Upstream: dmenu + slock/X11. This version: Fuzzel + swaylock/Sway/Wayland.
+
+case "$(printf '%s\n' lock suspend reboot shutdown logout reload kill \
+        | fuzzel --dmenu --prompt="SYSTEM > " --placeholder="pick an action")" in
+    lock)     /home/tod/.local/bin/tod-lock ;;
+    suspend)  /home/tod/.local/bin/tod-lock & sleep 1 && systemctl suspend -i ;;
+    reboot)   systemctl reboot -i ;;
+    shutdown) systemctl poweroff -i ;;
+    logout)   swaymsg exit ;;
+    reload)   swaymsg reload ;;
+    kill)     ps -u "$USER" -o pid=,comm=,%cpu=,%mem= --sort=-%cpu \
+                  | fuzzel --dmenu --prompt="KILL > " --placeholder="select process" \
+                  | awk '{print $1}' | xargs -r kill ;;
+    *)        exit 0 ;;
+esac

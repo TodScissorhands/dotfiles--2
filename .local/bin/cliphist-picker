@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Clipboard history picker with uniform row layout using cliphist + fuzzel.
+# Supports text and image previews with consistent 40px line-height.
+
+thumbnail_dir="${XDG_CACHE_HOME:-$HOME/.cache}/cliphist/thumbnails"
+
+cliphist_list=$(cliphist list)
+if [ -z "$cliphist_list" ]; then
+  fuzzel -d --prompt="CLIPBOARD > " --placeholder="clipboard is empty" --lines 0 >/dev/null 2>&1
+  rm -rf "$thumbnail_dir"
+  exit 0
+fi
+
+[ -d "$thumbnail_dir" ] || mkdir -p "$thumbnail_dir"
+
+read -r -d '' thumbnail_awk << 'EOF'
+function format_image_label(line,    parts, n, ext, dims, size, i, p) {
+    n = split(line, parts, /[[:space:]]+/)
+    ext = ""
+    dims = ""
+    size = ""
+    for (i = 1; i <= n; i++) {
+        p = tolower(parts[i])
+        if (p ~ /^(png|jpg|jpeg|bmp|webp|gif|tiff)$/) {
+            ext = toupper(p)
+        } else if (p ~ /^[0-9]+x[0-9]+$/) {
+            dims = p
+            sub(/x/, "\xc3\x97", dims)
+        } else if (parts[i] ~ /^(KiB|MiB|GiB|B|kB|MB)$/) {
+            size = parts[i-1] " " parts[i]
+        }
+    }
+    if (ext == "") ext = "PNG"
+    if (dims != "") return "IMAGE \xc2\xb7 " ext " \xc2\xb7 " dims
+    if (size != "") return "IMAGE \xc2\xb7 " ext " \xc2\xb7 " size
+    return "IMAGE \xc2\xb7 " ext
+}
+
+$3 ~ /^<meta http-equiv=/ || /^[0-9]+[[:space:]]+<meta http-equiv=/ { next }
+
+match($0, /^([0-9]+)[[:space:]]+(\[\[[[:space:]]*)?binary.*(jpg|jpeg|png|bmp|webp|gif|tiff)/, grp) {
+  cliphist_item_id = grp[1]
+  ext = grp[3]
+  thumbnail_file = cliphist_item_id "." ext
+  system("[ -f " thumbnail_dir "/" thumbnail_file " ] || echo " cliphist_item_id "\\\t | cliphist decode > " thumbnail_dir "/" thumbnail_file)
+  label = format_image_label($0)
+  desc = $0; sub(/^[0-9]+[[:space:]]+/, "", desc); gsub(/\t/, " ", desc)
+  print cliphist_item_id "\t" label "\timage " desc "\0icon\x1f" thumbnail_dir "/" thumbnail_file
+  next
+}
+{
+  preview = $0; sub(/^[0-9]+[[:space:]]+/, "", preview)
+  print $1 "\t" preview "\t" preview
+}
+EOF
+
+item=$(printf '%s\n' "$cliphist_list" \
+  | gawk -v thumbnail_dir="$thumbnail_dir" "$thumbnail_awk" \
+  | fuzzel -d \
+      --prompt="CLIPBOARD > " \
+      --placeholder="type to filter" \
+      --override=main.image-size-ratio=0 \
+      --line-height=40 \
+      --lines=8 \
+      --width=60 \
+      --minimal-lines \
+      --with-nth 2 \
+      --match-nth 3 \
+      2>/dev/null)
+
+exit_code=$?
+
+# Esc or empty selection leaves clipboard unchanged
+if [ -z "$item" ] || [ "$exit_code" -ne 0 ]; then
+  exit 0
+fi
+
+printf '%s\n' "$item" | cliphist decode | wl-copy
+
+# Asynchronously prune cached thumbnails no longer in database
+(
+  find "$thumbnail_dir" -type f 2>/dev/null | while IFS= read -r thumbnail_file; do
+    cliphist_item_id=$(basename "${thumbnail_file%.*}")
+    if ! grep -qP "^${cliphist_item_id}\t" <<<"$cliphist_list"; then
+      rm -f "$thumbnail_file"
+    fi
+  done
+) >/dev/null 2>&1 &

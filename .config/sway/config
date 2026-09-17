@@ -52,6 +52,7 @@ exec --no-startup-id /home/tod/.config/fish/scripts/wallpaper-ctl.fish restore
 exec --no-startup-id udiskie --tray
 exec --no-startup-id waybar
 exec --no-startup-id /home/tod/.local/bin/wlsunset-toggle --start
+exec wl-paste --watch cliphist store
 
 ### Core controls
 bindsym $mod+Return exec $term
@@ -64,10 +65,13 @@ bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit Sway?' -B 'Yes, exit' 'swa
 bindsym $mod+Escape exec $lock
 bindsym --locked XF86PowerOff exec swaynag -t warning -m 'Power off this laptop?' -B 'Cancel' true -B 'Power off' 'systemctl poweroff'
 bindsym $mod+Ctrl+p exec pavucontrol
+bindsym $mod+o exec /home/tod/.local/bin/audio-output
+bindsym $mod+Shift+v exec /home/tod/.local/bin/cliphist-picker
+bindsym $mod+x exec /home/tod/.local/bin/sys-menu
 # Wallpaper picker: Super+Shift+W opens Yazi; Super+Ctrl+W advances the
 # selected theme's images. Super+W remains the tabbed-layout binding below.
-bindsym $mod+Shift+w exec /home/tod/.config/fish/scripts/wallpaper-picker.fish
-bindsym $mod+Ctrl+w exec /home/tod/.config/fish/scripts/wallpaper-next.fish
+bindsym $mod+Alt+w exec /home/tod/.config/fish/scripts/wallpaper-picker.fish
+bindsym $mod+Shift+w exec /home/tod/.config/fish/scripts/wallpaper-next.fish
 
 # warpd pointer control (Wayland: standalone, compositor-launched modes).
 # There is intentionally no `exec warpd` daemon here: each invocation owns

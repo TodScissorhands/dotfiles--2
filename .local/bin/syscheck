@@ -1,0 +1,146 @@
+#!/bin/sh
+# System diagnostic — adapted from BreadOnPenguins/scripts shell/stats.
+# Upstream: basic stats dump piped through bat.
+# This version: structured OK/WARN/FAIL checks for Arch + Sway.
+
+# Pre-compute ANSI sequences as real escape bytes.
+ESC=$(printf '\033')
+OK="${ESC}[32m OK ${ESC}[0m"
+WARN="${ESC}[33mWARN${ESC}[0m"
+FAIL="${ESC}[31mFAIL${ESC}[0m"
+DIM="${ESC}[2m"
+RST="${ESC}[0m"
+BOLD="${ESC}[1m"
+
+status() {
+    # $1=value $2=warn_threshold $3=fail_threshold
+    [ "$1" = "N/A" ] && printf '%s' "$WARN" && return
+    [ "$1" -ge "$3" ] 2>/dev/null && printf '%s' "$FAIL" && return
+    [ "$1" -ge "$2" ] 2>/dev/null && printf '%s' "$WARN" && return
+    printf '%s' "$OK"
+}
+
+disk_status() {
+    [ "$1" -ge 95 ] 2>/dev/null && printf '%s' "$FAIL" && return
+    [ "$1" -ge 85 ] 2>/dev/null && printf '%s' "$WARN" && return
+    printf '%s' "$OK"
+}
+
+section() { printf '\n%s── %s%s\n' "$BOLD" "$1" "$RST"; }
+
+# ─── Temps (upstream: sensors → awk) ──────────────────────────
+CPU_TEMP=$(sensors 2>/dev/null | awk '
+    /^Tctl|^Tdie|^Package id|^Core 0|^temp1/ {
+        gsub(/[+°C]/, "")
+        for (i = 1; i <= NF; i++)
+            if ($i ~ /^[0-9]+(\.[0-9]+)?$/) { gsub(/\..*/, "", $i); print $i; exit }
+    }')
+[ -z "$CPU_TEMP" ] && CPU_TEMP="N/A"
+
+GPU_TEMP=$(sensors 2>/dev/null | awk '/^edge/ { gsub(/\+/, ""); gsub(/\..*/, "", $2); print $2; exit }')
+[ -z "$GPU_TEMP" ] && GPU_TEMP="N/A"
+
+NVME_TEMP=$(sensors 2>/dev/null | awk '/^Composite:/ { gsub(/[+°C]/, ""); gsub(/\..*/, "", $2); print $2; exit }')
+[ -z "$NVME_TEMP" ] && NVME_TEMP="N/A"
+
+# ─── Memory (upstream: free -m) ───────────────────────────────
+MEM_USED=$(free -m | awk '/^Mem/ { printf "%.1f", $3 / 1024 }')
+MEM_TOTAL=$(free -m | awk '/^Mem/ { printf "%.1f", $2 / 1024 }')
+MEM_PCT=$(free | awk '/^Mem/ { printf "%.0f", $3 / $2 * 100 }')
+SWAP_USED=$(free -m | awk '/^Swap/ { print $3 }')
+SWAP_TOTAL=$(free -m | awk '/^Swap/ { printf "%.0f", $2 / 1024 }')
+
+# ─── systemd ─────────────────────────────────────────────────
+FAILED_UNITS=$(systemctl --failed --no-legend --plain 2>/dev/null)
+FAILED_COUNT=0
+[ -n "$FAILED_UNITS" ] && FAILED_COUNT=$(printf '%s\n' "$FAILED_UNITS" | grep -c '\S')
+
+# ─── Network ─────────────────────────────────────────────────
+NET_IF=$(ip -brief addr 2>/dev/null | awk '$1 != "lo" && $2 == "UP" { printf "%s %s", $1, $3 }')
+
+# ─── Services ────────────────────────────────────────────────
+PW_VER=$(pw-cli --version 2>/dev/null | awk '/libpipewire/ { print $NF; exit }')
+WP_PID=$(pgrep -x wireplumber 2>/dev/null)
+SWAY_VER=$(swaymsg -t get_version 2>/dev/null | jq -r '.human_readable')
+WAYBAR_PID=$(pgrep -x waybar 2>/dev/null)
+
+# ─── System info (upstream: uname, pacman stat) ──────────────
+KERNEL=$(uname -r)
+UPTIME=$(uptime -p | sed 's/^up //')
+LOAD=$(cut -d' ' -f1-3 /proc/loadavg)
+LAST_UPDATE=$(stat -c %y /var/lib/pacman/local 2>/dev/null | cut -d' ' -f1)
+NPROC=$(nproc)
+
+# ═══════════════════ Output ═══════════════════════════════════
+
+section "Temperatures"
+printf '  [%s]  CPU   %s°C\n' "$(status "$CPU_TEMP" 75 90)" "$CPU_TEMP"
+printf '  [%s]  GPU   %s°C\n' "$(status "$GPU_TEMP" 70 90)" "$GPU_TEMP"
+printf '  [%s]  NVMe  %s°C\n' "$(status "$NVME_TEMP" 60 80)" "$NVME_TEMP"
+
+section "Memory"
+printf '  [%s]  RAM   %s / %s GiB (%s%%)\n' "$(status "$MEM_PCT" 80 95)" "$MEM_USED" "$MEM_TOTAL" "$MEM_PCT"
+if [ "$SWAP_USED" -gt 0 ] 2>/dev/null; then
+    printf '  [%s]  Swap  %s MiB used / %s GiB\n' "$WARN" "$SWAP_USED" "$SWAP_TOTAL"
+else
+    printf '  [%s]  Swap  clean (%s GiB available)\n' "$OK" "$SWAP_TOTAL"
+fi
+
+section "Disk"
+df -h --output=target,size,avail,pcent -x tmpfs -x devtmpfs -x efivarfs 2>/dev/null \
+    | awk 'NR == 1 { next } !seen[$1]++ { print }' \
+    | while IFS= read -r line; do
+        pct=$(echo "$line" | awk '{ gsub(/%/, "", $NF); print $NF }')
+        mount=$(echo "$line" | awk '{ print $1 }')
+        avail=$(echo "$line" | awk '{ print $3 }')
+        size=$(echo "$line" | awk '{ print $2 }')
+        printf '  [%s]  %-22s %5s free / %5s  %s%3s%%%s\n' \
+            "$(disk_status "$pct")" "$mount" "$avail" "$size" "$DIM" "$pct" "$RST"
+    done
+
+section "Systemd"
+if [ "$FAILED_COUNT" -eq 0 ]; then
+    printf '  [%s]  No failed units\n' "$OK"
+else
+    printf '  [%s]  %d failed unit(s):\n' "$FAIL" "$FAILED_COUNT"
+    printf '%s\n' "$FAILED_UNITS" | while IFS= read -r unit; do
+        [ -n "$unit" ] && printf '         %s\n' "$unit"
+    done
+fi
+
+section "Network"
+if [ -n "$NET_IF" ]; then
+    printf '  [%s]  %s\n' "$OK" "$NET_IF"
+else
+    printf '  [%s]  No active interfaces\n' "$FAIL"
+fi
+
+section "Services"
+if [ -n "$PW_VER" ]; then
+    printf '  [%s]  PipeWire %s\n' "$OK" "$PW_VER"
+else
+    printf '  [%s]  PipeWire not running\n' "$FAIL"
+fi
+if [ -n "$WP_PID" ]; then
+    printf '  [%s]  WirePlumber (pid %s)\n' "$OK" "$WP_PID"
+else
+    printf '  [%s]  WirePlumber not running\n' "$FAIL"
+fi
+if [ -n "$SWAY_VER" ]; then
+    printf '  [%s]  Sway %s\n' "$OK" "$SWAY_VER"
+else
+    printf '  [%s]  Sway not reachable\n' "$FAIL"
+fi
+if [ -n "$WAYBAR_PID" ]; then
+    printf '  [%s]  Waybar (pid %s)\n' "$OK" "$WAYBAR_PID"
+else
+    printf '  [%s]  Waybar not running\n' "$WARN"
+fi
+
+section "System"
+printf '  Kernel  %s\n' "$KERNEL"
+printf '  Load    %s  %s(%s cores)%s\n' "$LOAD" "$DIM" "$NPROC" "$RST"
+printf '  Uptime  %s\n' "$UPTIME"
+printf '  Pacman  last sync %s\n' "$LAST_UPDATE"
+
+echo ""

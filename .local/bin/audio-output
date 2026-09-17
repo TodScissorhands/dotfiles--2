@@ -1,0 +1,24 @@
+#!/bin/sh
+# Audio output switcher using wpctl + fuzzel.
+# Lists PipeWire audio sinks, marks the default, switches on selection.
+
+sinks=$(wpctl status | awk '/^Audio$/,/^$/' | sed -n '/Sinks:/,/Sources:/p' | grep '\[vol:')
+[ -z "$sinks" ] && exit 1
+
+TAB=$(printf '\t')
+menu=""
+while IFS= read -r line; do
+    id=$(echo "$line" | grep -oP '\b\d+(?=\.)' | head -1)
+    name=$(echo "$line" | sed 's/.*[0-9]\+\. //' | sed 's/ *\[vol:.*//')
+    case "$line" in *\**) prefix="●" ;; *) prefix=" " ;; esac
+    menu="${menu}${prefix} ${name}${TAB}${id}
+"
+done <<EOF
+$sinks
+EOF
+
+choice=$(printf '%s' "$menu" | fuzzel --dmenu --prompt="AUDIO OUTPUT > " --placeholder="pick a sink")
+[ -z "$choice" ] && exit 0
+
+sink_id=$(printf '%s' "$choice" | awk -F'\t' '{print $NF}')
+wpctl set-default "$sink_id"

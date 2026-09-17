@@ -18,7 +18,7 @@
   "group/right": {
     "orientation": "horizontal",
     "spacing": 0,
-    "modules": ["pulseaudio", "bluetooth", "network", "battery", "custom/power-draw", "cpu", "memory", "temperature", "custom/warm-light"]
+    "modules": ["pulseaudio", "bluetooth", "network", "battery", "custom/power-draw", "custom/sysinfo", "custom/warm-light"]
   },
 
   "sway/workspaces": {
@@ -49,8 +49,8 @@
     "format": "󰂯",
     "format-disabled": "󰂲",
     "format-off": "󰂲",
-    "format-connected": "󰂯 {device_alias}",
-    "format-connected-battery": "󰂯 {device_alias} {device_battery_percentage}%",
+    "format-connected": "{device_alias}",
+    "format-connected-battery": "{device_alias} {device_battery_percentage}%",
     "tooltip-format": "{controller_alias}\n{num_connections} connected",
     "tooltip-format-connected": "{controller_alias}\n\n{device_enumerate}",
     "tooltip-format-enumerate-connected": "{device_alias} {device_address}",
@@ -81,13 +81,11 @@
     "tooltip": true,
     "tooltip-format": "Current battery power rate (refreshed once per minute)"
   },
-  "cpu": { "interval": 5, "format": " {usage}%", "tooltip": false },
-  "memory": { "interval": 5, "format": " {percentage}%", "tooltip": false },
-  "temperature": {
+  "custom/sysinfo": {
+    "exec": "/home/tod/.local/bin/waybar-sysinfo",
+    "return-type": "json",
     "interval": 10,
-    "critical-threshold": 80,
-    "format": " {temperatureC}°C",
-    "format-critical": " {temperatureC}°C"
+    "on-click": "ghostty -e btop"
   },
   "custom/warm-light": {
     "exec": "/home/tod/.local/bin/wlsunset-toggle --status",
