@@ -60,18 +60,14 @@
     ),
     browser_song_format: [
         (
-            kind: Group([
-                (kind: Property(Track)),
-                (kind: Text(" ")),
-            ])
-        ),
-        (
-            kind: Group([
-                (kind: Property(Artist)),
-                (kind: Text(" - ")),
-                (kind: Property(Title)),
-            ]),
-            default: (kind: Property(Filename))
+            kind: Property(Filename),
+            default: (
+                kind: Group([
+                    (kind: Property(Artist)),
+                    (kind: Text(" - ")),
+                    (kind: Property(Title)),
+                ])
+            )
         ),
     ],
     song_table_format: [

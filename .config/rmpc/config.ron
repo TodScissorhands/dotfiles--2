@@ -23,7 +23,7 @@
     reflect_changes_to_playlist: false,
     select_current_song_on_change: false,
     ignore_leading_the: true,
-    browser_song_sort: [Disc, Track, Artist, Title],
+    browser_song_sort: [Filename],
     directories_sort: SortFormat(group_by_type: true, reverse: false),
     auto_open_downloads: true,
     album_art: (
