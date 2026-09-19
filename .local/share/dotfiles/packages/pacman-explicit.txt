@@ -73,7 +73,6 @@ pipewire
 pipewire-alsa
 pipewire-jack
 pipewire-pulse
-plymouth
 power-profiles-daemon
 qbittorrent
 qt5-quickcontrols2
