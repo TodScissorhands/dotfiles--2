@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+"""Yazi-style TUI Application Browser & Launcher for Fuzzel."""
+
+import configparser
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+CACHE_DIR = Path.home() / ".cache" / "fuzzel-yazi"
+CACHE_FILE = CACHE_DIR / "apps.tsv"
+APP_DIRS = [
+    Path.home() / ".local" / "share" / "applications",
+    Path("/usr/local/share/applications"),
+    Path("/usr/share/applications"),
+]
+
+
+def should_rebuild() -> bool:
+    if not CACHE_FILE.exists():
+        return True
+    try:
+        cache_mtime = CACHE_FILE.stat().st_mtime
+        for d in APP_DIRS:
+            if d.exists() and d.stat().st_mtime > cache_mtime:
+                return True
+    except Exception:
+        return True
+    return False
+
+
+def build_app_list() -> list[tuple[str, str, str, str]]:
+    apps: dict[str, dict[str, str]] = {}
+    for d in APP_DIRS:
+        if not d.exists():
+            continue
+        for f in sorted(d.glob("*.desktop")):
+            base = f.name
+            if base in apps:
+                continue
+            cp = configparser.ConfigParser(interpolation=None)
+            try:
+                cp.read(f, encoding="utf-8")
+                if not cp.has_section("Desktop Entry"):
+                    continue
+                de = cp["Desktop Entry"]
+                if de.getboolean("NoDisplay", fallback=False):
+                    continue
+                if de.get("Type", "Application") != "Application":
+                    continue
+                name = de.get("Name", "").strip()
+                if not name:
+                    continue
+                icon = de.get("Icon", "").strip()
+                generic = de.get("GenericName", "").strip()
+                comment = de.get("Comment", "").strip()
+                cats = [c for c in de.get("Categories", "").split(";") if c]
+                cat = cats[0] if cats else ""
+                apps[base] = {
+                    "name": name,
+                    "icon": icon,
+                    "generic": generic,
+                    "comment": comment,
+                    "category": cat,
+                }
+            except Exception:
+                continue
+
+    items = []
+    # Sort alphabetically by application name
+    for base, data in sorted(apps.items(), key=lambda x: x[1]["name"].lower()):
+        name = data["name"]
+        generic = data["generic"]
+        comment = data["comment"]
+        cat = data["category"]
+
+        meta = generic or comment or cat or "Application"
+        if cat and cat not in meta:
+            meta = f"{meta} · {cat}"
+        # Clean newlines or tabs from metadata
+        meta = meta.replace("\n", " ").replace("\t", " ").strip()
+        items.append((base, name, meta, data["icon"]))
+
+    return items
+
+
+def main():
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    if should_rebuild():
+        items = build_app_list()
+        lines = []
+        for base, name, meta, icon in items:
+            lines.append(f"{base}\t{name}\0icon\x1f{icon}")
+        CACHE_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    input_data = CACHE_FILE.read_bytes()
+
+    # Launch Fuzzel in Yazi-style two-column dmenu mode
+    cmd = [
+        "/usr/bin/fuzzel",
+        "-d",
+        "--prompt=APPS ❯ ",
+        "--placeholder=search applications...",
+        "--with-nth=2",
+        "--accept-nth=1",
+        "--width=30",
+        "--lines=10",
+        "--anchor=top-left",
+        "--x-margin=10",
+        "--y-margin=33",
+    ]
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            input=input_data,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        sys.exit(1)
+
+    if proc.returncode != 0:
+        sys.exit(0)
+
+    selected = proc.stdout.decode("utf-8").strip()
+    if selected:
+        # Launch application detached
+        subprocess.Popen(
+            ["gtk-launch", selected],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+
+
+if __name__ == "__main__":
+    main()

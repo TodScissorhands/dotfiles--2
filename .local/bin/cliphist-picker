@@ -1,88 +1,667 @@
-#!/usr/bin/env bash
-# Clipboard history picker with uniform row layout using cliphist + fuzzel.
-# Supports text and image previews with consistent 40px line-height.
+#!/usr/bin/env python3
+"""Fast Compact Single-Window Clipboard Inspector with Async Preview.
 
-thumbnail_dir="${XDG_CACHE_HOME:-$HOME/.cache}/cliphist/thumbnails"
+Vertical Stack Layout:
+  ┌──────────────────────────────────────────────┐
+  │ CLIP ❯ search/filter                         │
+  ├──────────────────────────────────────────────┤
+  │ [TAG] item summary                           │
+  │ [TAG] item summary                           │
+  ├──────────────────────────────────────────────┤
+  │ PREVIEW ❯ metadata                           │
+  ├──────────────────────────────────────────────┤
+  │ Complete Text (scrolling) or Centered Image  │
+  └──────────────────────────────────────────────┘
+"""
 
-cliphist_list=$(cliphist list)
-if [ -z "$cliphist_list" ]; then
-  fuzzel -d --prompt="CLIPBOARD > " --placeholder="clipboard is empty" --lines 0 >/dev/null 2>&1
-  rm -rf "$thumbnail_dir"
-  exit 0
-fi
+import json
+import os
+import re
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
 
-[ -d "$thumbnail_dir" ] || mkdir -p "$thumbnail_dir"
+t_proc_start = time.perf_counter()
 
-read -r -d '' thumbnail_awk << 'EOF'
-function format_image_label(line,    parts, n, ext, dims, size, i, p) {
-    n = split(line, parts, /[[:space:]]+/)
-    ext = ""
-    dims = ""
-    size = ""
-    for (i = 1; i <= n; i++) {
-        p = tolower(parts[i])
-        if (p ~ /^(png|jpg|jpeg|bmp|webp|gif|tiff)$/) {
-            ext = toupper(p)
-        } else if (p ~ /^[0-9]+x[0-9]+$/) {
-            dims = p
-            sub(/x/, "\xc3\x97", dims)
-        } else if (parts[i] ~ /^(KiB|MiB|GiB|B|kB|MB)$/) {
-            size = parts[i-1] " " parts[i]
-        }
-    }
-    if (ext == "") ext = "PNG"
-    if (dims != "") return "IMAGE \xc2\xb7 " ext " \xc2\xb7 " dims
-    if (size != "") return "IMAGE \xc2\xb7 " ext " \xc2\xb7 " size
-    return "IMAGE \xc2\xb7 " ext
+import gi
+
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+gi.require_version("Gtk", "3.0")
+gi.require_version("GtkLayerShell", "0.1")
+from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, GtkLayerShell, Pango
+
+# pywal16 semantic colors
+WAL_SEMANTIC = Path.home() / ".cache" / "wal" / "semantic-colors.json"
+colors = {
+    "bg": "#1c1c0c",
+    "bg_alt": "#2e2e1f",
+    "fg": "#c6c6c2",
+    "fg_muted": "#75755f",
+    "accent": "#978552",
+    "selection": "#4b3c1d",
+    "border": "#7e7264",
+    "code": "#75e075",
+    "image": "#b69b4c",
+    "url": "#79a3f8",
 }
 
-$3 ~ /^<meta http-equiv=/ || /^[0-9]+[[:space:]]+<meta http-equiv=/ { next }
+if WAL_SEMANTIC.exists():
+    try:
+        data = json.loads(WAL_SEMANTIC.read_text())
+        colors["bg"] = data.get("background", colors["bg"])
+        colors["bg_alt"] = data.get("background_alt", colors["bg_alt"])
+        colors["fg"] = data.get("foreground", colors["fg"])
+        colors["fg_muted"] = data.get("foreground_muted", colors["fg_muted"])
+        colors["accent"] = data.get("accent", colors["accent"])
+        colors["selection"] = data.get("selection_background", colors["selection"])
+        colors["border"] = data.get("border", colors["border"])
+        colors["code"] = data.get("success", colors["code"])
+        colors["image"] = data.get("warning", colors["image"])
+        colors["url"] = data.get("info", colors["url"])
+    except Exception:
+        pass
 
-match($0, /^([0-9]+)[[:space:]]+(\[\[[[:space:]]*)?binary.*(jpg|jpeg|png|bmp|webp|gif|tiff)/, grp) {
-  cliphist_item_id = grp[1]
-  ext = grp[3]
-  thumbnail_file = cliphist_item_id "." ext
-  system("[ -f " thumbnail_dir "/" thumbnail_file " ] || echo " cliphist_item_id "\\\t | cliphist decode > " thumbnail_dir "/" thumbnail_file)
-  label = format_image_label($0)
-  desc = $0; sub(/^[0-9]+[[:space:]]+/, "", desc); gsub(/\t/, " ", desc)
-  print cliphist_item_id "\t" label "\timage " desc "\0icon\x1f" thumbnail_dir "/" thumbnail_file
-  next
-}
-{
-  preview = $0; sub(/^[0-9]+[[:space:]]+/, "", preview)
-  print $1 "\t" preview "\t" preview
-}
-EOF
+THUMB_DIR = Path.home() / ".cache" / "cliphist" / "thumbnails"
+THUMB_DIR.mkdir(parents=True, exist_ok=True)
 
-item=$(printf '%s\n' "$cliphist_list" \
-  | gawk -v thumbnail_dir="$thumbnail_dir" "$thumbnail_awk" \
-  | fuzzel -d \
-      --prompt="CLIPBOARD > " \
-      --placeholder="type to filter" \
-      --override=main.image-size-ratio=0 \
-      --line-height=40 \
-      --lines=8 \
-      --width=60 \
-      --minimal-lines \
-      --with-nth 2 \
-      --match-nth 3 \
-      2>/dev/null)
 
-exit_code=$?
+class FastClipboardInspector(Gtk.Window):
+    def __init__(self):
+        super().__init__()
+        self.t_construct_start = time.perf_counter()
+        self.t_window_mapped = None
+        self.t_list_ready = None
+        self.t_preview_ready = None
 
-# Esc or empty selection leaves clipboard unchanged
-if [ -z "$item" ] || [ "$exit_code" -ne 0 ]; then
-  exit 0
-fi
+        # Setup Layer Shell for immediate top-left placement
+        GtkLayerShell.init_for_window(self)
+        GtkLayerShell.set_layer(self, GtkLayerShell.Layer.OVERLAY)
+        GtkLayerShell.set_keyboard_mode(self, GtkLayerShell.KeyboardMode.EXCLUSIVE)
+        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.TOP, True)
+        GtkLayerShell.set_anchor(self, GtkLayerShell.Edge.LEFT, True)
+        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.TOP, 33)
+        GtkLayerShell.set_margin(self, GtkLayerShell.Edge.LEFT, 10)
 
-printf '%s\n' "$item" | cliphist decode | wl-copy
+        # Compact single-window vertical geometry (600w x 480h)
+        self.set_size_request(600, 480)
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("map-event", self.on_map_event)
 
-# Asynchronously prune cached thumbnails no longer in database
-(
-  find "$thumbnail_dir" -type f 2>/dev/null | while IFS= read -r thumbnail_file; do
-    cliphist_item_id=$(basename "${thumbnail_file%.*}")
-    if ! grep -qP "^${cliphist_item_id}\t" <<<"$cliphist_list"; then
-      rm -f "$thumbnail_file"
-    fi
-  done
-) >/dev/null 2>&1 &
+        self.can_dismiss = False
+        GLib.timeout_add(250, self.enable_dismiss)
+        self.connect("focus-out-event", self.on_focus_out)
+
+        self.apply_css()
+
+        # State & async tracking
+        self.preview_token = 0
+        self.raw_items = []
+        self.displayed_items = []
+
+        # Root vertical layout
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.add(root)
+
+        # 1. TOP: Search & filter bar
+        search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        search_box.get_style_context().add_class("search-box")
+        prompt_lbl = Gtk.Label(label="CLIP ❯")
+        prompt_lbl.get_style_context().add_class("prompt-lbl")
+        search_box.pack_start(prompt_lbl, False, False, 0)
+
+        self.search_entry = Gtk.Entry()
+        self.search_entry.set_placeholder_text("search clipboard history...")
+        self.search_entry.connect("changed", self.on_search_changed)
+        search_box.pack_start(self.search_entry, True, True, 0)
+        root.pack_start(search_box, False, False, 0)
+
+        # 2. MIDDLE: Compact scrollable clipboard list (170px height)
+        self.scrolled_list = Gtk.ScrolledWindow()
+        self.scrolled_list.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.scrolled_list.set_size_request(-1, 170)
+        root.pack_start(self.scrolled_list, False, False, 0)
+
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.listbox.connect("row-selected", self.on_row_selected)
+        self.listbox.connect("row-activated", self.on_row_activated)
+        self.scrolled_list.add(self.listbox)
+
+        # 3. DIVIDER: Contextual preview header
+        self.preview_header = Gtk.Label(label="PREVIEW ❯")
+        self.preview_header.set_xalign(0.0)
+        self.preview_header.get_style_context().add_class("preview-header")
+        root.pack_start(self.preview_header, False, False, 0)
+
+        # 4. BOTTOM: Preview area (remaining height ~278px)
+        preview_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        preview_container.get_style_context().add_class("preview-container")
+        root.pack_start(preview_container, True, True, 0)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.NONE)
+        preview_container.pack_start(self.stack, True, True, 0)
+
+        # Text preview container with scroll
+        self.scrolled_text = Gtk.ScrolledWindow()
+        self.scrolled_text.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.text_view = Gtk.TextView()
+        self.text_view.set_editable(False)
+        self.text_view.set_cursor_visible(False)
+        self.text_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.text_view.set_left_margin(10)
+        self.text_view.set_right_margin(10)
+        self.text_view.set_top_margin(6)
+        self.text_view.set_bottom_margin(6)
+        self.text_view.get_style_context().add_class("preview-text")
+        self.scrolled_text.add(self.text_view)
+        self.stack.add_named(self.scrolled_text, "text")
+
+        # Image preview container (centered, aspect preserved)
+        self.image_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.image_container.set_valign(Gtk.Align.CENTER)
+        self.image_container.set_halign(Gtk.Align.CENTER)
+        self.preview_image = Gtk.Image()
+        self.image_container.pack_start(self.preview_image, True, True, 4)
+        self.stack.add_named(self.image_container, "image")
+
+        # CRITICAL STARTUP REQUIREMENT:
+        # MAP WINDOW IMMEDIATELY BEFORE ANY CLIPBOARD DECODE OR HEAVY PROCESSING
+        self.show_all()
+        self.t_show_called = time.perf_counter()
+
+        # Defer list population to first idle loop so window surface maps first
+        GLib.idle_add(self.initial_populate)
+
+    def on_map_event(self, widget, event):
+        self.t_window_mapped = time.perf_counter()
+        return False
+
+    def enable_dismiss(self):
+        self.can_dismiss = True
+        return False
+
+    def on_focus_out(self, widget, event):
+        if self.can_dismiss:
+            Gtk.main_quit()
+        return False
+
+    def apply_css(self):
+        css = f"""
+        * {{
+            font-family: 'GeistMono Nerd Font Mono', monospace;
+            font-size: 13px;
+            font-weight: normal;
+        }}
+        window {{
+            background-color: {colors['bg']};
+            border: 2px solid {colors['border']};
+            border-radius: 0;
+        }}
+        .search-box {{
+            background-color: transparent;
+            border: none;
+            padding: 6px 10px 4px 10px;
+        }}
+        .prompt-lbl {{
+            color: {colors['accent']};
+            font-size: 13px;
+            font-weight: normal;
+        }}
+        entry {{
+            background-color: transparent;
+            color: {colors['fg']};
+            border: none;
+            box-shadow: none;
+            font-size: 13px;
+            padding: 0;
+            margin: 0;
+        }}
+        entry placeholder {{
+            color: {colors['fg_muted']};
+        }}
+        list {{
+            background-color: transparent;
+        }}
+        row {{
+            padding: 1px 10px;
+            border: none;
+            transition: none;
+            border-radius: 0;
+        }}
+        row:selected {{
+            background-color: alpha({colors['selection']}, 0.85);
+            color: {colors['fg']};
+        }}
+        scrollbar, scrollbar trough, scrollbar slider {{
+            opacity: 0;
+            min-width: 0;
+            min-height: 0;
+            padding: 0;
+            margin: 0;
+            border: none;
+            background: transparent;
+            -GtkScrollbar-has-backward-stepper: false;
+            -GtkScrollbar-has-forward-stepper: false;
+        }}
+        .preview-header {{
+            background-color: transparent;
+            color: {colors['accent']};
+            font-size: 11px;
+            font-weight: normal;
+            padding: 3px 10px;
+            border-top: 1px solid alpha({colors['border']}, 0.35);
+            border-bottom: 1px solid alpha({colors['border']}, 0.35);
+        }}
+        .preview-container, scrolledwindow, textview, textview text, .preview-text {{
+            background-color: transparent;
+            color: {colors['fg']};
+            font-size: 12px;
+            padding: 0;
+            border: none;
+        }}
+        .tag-lbl {{
+            font-size: 10px;
+            font-weight: normal;
+        }}
+        .tag-image {{ color: {colors['image']}; }}
+        .tag-code  {{ color: {colors['code']}; }}
+        .tag-url   {{ color: {colors['url']}; }}
+        .tag-text  {{ color: {colors['accent']}; }}
+        .item-text {{
+            color: {colors['fg']};
+            font-size: 13px;
+        }}
+        .dim-text {{
+            color: {colors['fg_muted']};
+            font-size: 11px;
+        }}
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css.encode("utf-8"))
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+
+    def initial_populate(self):
+        """Stream the first 30 items immediately and select first row."""
+        try:
+            p = subprocess.Popen(
+                ["cliphist", "list"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+            raw_lines = []
+            for line in p.stdout:
+                if line.strip():
+                    raw_lines.append(line)
+                if len(raw_lines) >= 30:
+                    break
+            p.terminate()
+        except Exception:
+            raw_lines = []
+
+        self.raw_items = self.parse_lines(raw_lines)
+        self.displayed_items = list(self.raw_items)
+
+        for item in self.displayed_items:
+            row = self.create_row_widget(item)
+            self.listbox.add(row)
+
+        self.listbox.show_all()
+        self.t_list_ready = time.perf_counter()
+
+        children = self.listbox.get_children()
+        if children:
+            self.listbox.select_row(children[0])
+
+        # Defer reading remaining items if any
+        GLib.idle_add(self.load_remaining_items)
+        return False
+
+    def load_remaining_items(self):
+        try:
+            out = subprocess.check_output(
+                ["cliphist", "list"], text=True, stderr=subprocess.DEVNULL
+            )
+            all_lines = [l for l in out.strip().split("\n") if l.strip()]
+            if len(all_lines) > len(self.raw_items):
+                remaining = all_lines[len(self.raw_items) : 150]
+                more_items = self.parse_lines(remaining)
+                self.raw_items.extend(more_items)
+                if not self.search_entry.get_text().strip():
+                    for item in more_items:
+                        self.listbox.add(self.create_row_widget(item))
+                    self.listbox.show_all()
+        except Exception:
+            pass
+        return False
+
+    def parse_lines(self, lines):
+        items = []
+        bin_re = re.compile(
+            r"^(\d+)\t(?:\[\[\s*)?binary\s*(?:data)?\s*([0-9.]+\s*[KMGT]?i?B)?\s*([a-zA-Z0-9]+)?\s*([0-9]+x[0-9]+)?",
+            re.I,
+        )
+        for line in lines:
+            m = bin_re.match(line)
+            if m:
+                cid = m.group(1)
+                size = m.group(2) or ""
+                ext = (m.group(3) or "png").lower()
+                dims = (m.group(4) or "").replace("x", "×")
+                full_path = THUMB_DIR / f"{cid}.{ext}"
+                small_path = THUMB_DIR / f"{cid}_thumb.png"
+                items.append({
+                    "id": cid,
+                    "type": "image",
+                    "ext": ext.upper(),
+                    "dims": dims,
+                    "size": size,
+                    "full_path": str(full_path),
+                    "small_path": str(small_path),
+                    "search_key": f"image {ext} {dims} {size}",
+                })
+            else:
+                parts = line.split("\t", 1)
+                if len(parts) == 2:
+                    cid, text = parts
+                    s = text.strip()
+                    if s.startswith("http://") or s.startswith("https://"):
+                        ttype = "url"
+                    elif any(
+                        s.startswith(k)
+                        for k in (
+                            "def ",
+                            "class ",
+                            "import ",
+                            "const ",
+                            "let ",
+                            "function ",
+                            "#!",
+                            "git ",
+                            "{",
+                            "###",
+                        )
+                    ):
+                        ttype = "code"
+                    else:
+                        ttype = "text"
+                    items.append({
+                        "id": cid,
+                        "type": ttype,
+                        "text": text,
+                        "search_key": text.lower(),
+                    })
+        return items
+
+    def create_row_widget(self, item):
+        row = Gtk.ListBoxRow()
+        row.item_data = item
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        if item["type"] == "image":
+            # Thumbnail: only if already cached on disk; never block startup
+            thumb_path = item["small_path"]
+            if os.path.exists(thumb_path):
+                try:
+                    pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                        thumb_path, 28, 18, True
+                    )
+                    img = Gtk.Image.new_from_pixbuf(pix)
+                    hbox.pack_start(img, False, False, 0)
+                except Exception:
+                    pass
+
+            tag_lbl = Gtk.Label(label="[IMAGE]")
+            tag_lbl.set_size_request(52, -1)
+            tag_lbl.set_xalign(0.0)
+            tag_lbl.get_style_context().add_class("tag-lbl")
+            tag_lbl.get_style_context().add_class("tag-image")
+            hbox.pack_start(tag_lbl, False, False, 0)
+
+            dim_text = (
+                f"{item['ext']} · {item['dims']} · {item['size']}"
+                if item["dims"]
+                else f"{item['ext']} · {item['size']}"
+            )
+            desc_lbl = Gtk.Label(label=dim_text)
+            desc_lbl.set_xalign(0.0)
+            desc_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            desc_lbl.get_style_context().add_class("dim-text")
+            hbox.pack_start(desc_lbl, True, True, 0)
+        else:
+            tag_map = {
+                "code": ("CODE", "tag-code"),
+                "url": ("URL", "tag-url"),
+                "text": ("TEXT", "tag-text"),
+            }
+            tlabel, tclass = tag_map.get(item["type"], ("TEXT", "tag-text"))
+            tag_lbl = Gtk.Label(label=f"[{tlabel}]")
+            tag_lbl.set_size_request(52, -1)
+            tag_lbl.set_xalign(0.0)
+            tag_lbl.get_style_context().add_class("tag-lbl")
+            tag_lbl.get_style_context().add_class(tclass)
+            hbox.pack_start(tag_lbl, False, False, 0)
+
+            clean = (
+                item["text"]
+                .replace("\r\n", " ")
+                .replace("\n", " ")
+                .replace("\t", " ")
+                .strip()
+            )
+            clean = re.sub(r" {2,}", " ", clean)
+            txt_lbl = Gtk.Label(label=clean)
+            txt_lbl.set_xalign(0.0)
+            txt_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            txt_lbl.get_style_context().add_class("item-text")
+            hbox.pack_start(txt_lbl, True, True, 0)
+
+        row.add(hbox)
+        return row
+
+    def on_search_changed(self, entry):
+        q = entry.get_text().lower().strip()
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+
+        filtered = self.raw_items if not q else [it for it in self.raw_items if q in it["search_key"]][:50]
+        self.displayed_items = filtered
+
+        for item in filtered:
+            self.listbox.add(self.create_row_widget(item))
+        self.listbox.show_all()
+
+        children = self.listbox.get_children()
+        if children:
+            self.listbox.select_row(children[0])
+
+    def on_row_selected(self, listbox, row):
+        if not row or not hasattr(row, "item_data"):
+            return
+        item = row.item_data
+        self.preview_token += 1
+        current_token = self.preview_token
+
+        # Update header immediately
+        if item["type"] == "image":
+            self.preview_header.set_text(
+                f"PREVIEW ❯ 󰋩 IMAGE · {item['ext']} · {item['dims']} · {item['size']}"
+            )
+            self.stack.set_visible_child_name("image")
+            # Dispatch async image preview decode
+            threading.Thread(
+                target=self.async_load_image,
+                args=(current_token, item),
+                daemon=True,
+            ).start()
+        else:
+            tag_name = item["type"].upper()
+            self.preview_header.set_text(f"PREVIEW ❯ 󰦨 {tag_name}")
+            self.stack.set_visible_child_name("text")
+            # Dispatch async text preview decode
+            threading.Thread(
+                target=self.async_load_text,
+                args=(current_token, item),
+                daemon=True,
+            ).start()
+
+    def async_load_text(self, token, item):
+        try:
+            p = subprocess.Popen(
+                ["cliphist", "decode"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+            raw, _ = p.communicate(input=f"{item['id']}\t".encode(), timeout=0.8)
+            full_text = raw.decode("utf-8", errors="replace")
+        except Exception:
+            full_text = item.get("text", "")
+
+        if token == self.preview_token:
+            GLib.idle_add(self.apply_text_preview, token, item, full_text)
+
+    def apply_text_preview(self, token, item, full_text):
+        if token != self.preview_token:
+            return False
+        buf = self.text_view.get_buffer()
+        buf.set_text(full_text)
+
+        # Update header with lines and chars
+        lines_cnt = len(full_text.splitlines())
+        chars_cnt = len(full_text)
+        tag_name = item["type"].upper()
+        self.preview_header.set_text(
+            f"PREVIEW ❯ 󰦨 {tag_name} · {lines_cnt} lines · {chars_cnt} chars"
+        )
+        self.t_preview_ready = time.perf_counter()
+        return False
+
+    def async_load_image(self, token, item):
+        full_path = item["full_path"]
+        small_path = item["small_path"]
+
+        # If not cached on disk, decode and save in background
+        if not os.path.exists(full_path):
+            try:
+                p = subprocess.Popen(
+                    ["cliphist", "decode"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                )
+                data, _ = p.communicate(input=f"{item['id']}\t".encode(), timeout=1.0)
+                if data:
+                    with open(full_path, "wb") as f:
+                        f.write(data)
+            except Exception:
+                pass
+
+        # Generate small thumbnail for cache if missing
+        if os.path.exists(full_path) and not os.path.exists(small_path):
+            try:
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(full_path, 28, 18, True)
+                pix.savev(small_path, "png", [], [])
+            except Exception:
+                pass
+
+        pixbuf = None
+        if os.path.exists(full_path):
+            try:
+                # Useful-sized preview preserving aspect ratio (max 560w x 220h)
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    full_path, 560, 220, True
+                )
+            except Exception:
+                pass
+
+        if token == self.preview_token:
+            GLib.idle_add(self.apply_image_preview, token, pixbuf)
+
+    def apply_image_preview(self, token, pixbuf):
+        if token != self.preview_token:
+            return False
+        if pixbuf:
+            self.preview_image.set_from_pixbuf(pixbuf)
+        else:
+            self.preview_image.clear()
+        self.t_preview_ready = time.perf_counter()
+        return False
+
+    def on_row_activated(self, listbox, row):
+        if not row or not hasattr(row, "item_data"):
+            return
+        self.copy_and_exit(row.item_data["id"])
+
+    def copy_and_exit(self, item_id):
+        try:
+            p = subprocess.Popen(
+                ["cliphist", "decode"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+            data, _ = p.communicate(input=f"{item_id}\t".encode(), timeout=0.8)
+            if data:
+                subprocess.run(["wl-copy"], input=data)
+        except Exception:
+            pass
+        Gtk.main_quit()
+
+    def on_key_press(self, widget, event):
+        key = event.keyval
+        if key == Gdk.KEY_Escape:
+            Gtk.main_quit()
+            return True
+        elif key in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
+            selected = self.listbox.get_selected_row()
+            if selected and hasattr(selected, "item_data"):
+                self.copy_and_exit(selected.item_data["id"])
+                return True
+        elif key == Gdk.KEY_Down:
+            self.move_selection(1)
+            return True
+        elif key == Gdk.KEY_Up:
+            self.move_selection(-1)
+            return True
+        elif key == Gdk.KEY_Page_Down:
+            adj = self.scrolled_text.get_vadjustment()
+            adj.set_value(
+                min(adj.get_upper() - adj.get_page_size(), adj.get_value() + 100)
+            )
+            return True
+        elif key == Gdk.KEY_Page_Up:
+            adj = self.scrolled_text.get_vadjustment()
+            adj.set_value(max(adj.get_lower(), adj.get_value() - 100))
+            return True
+        return False
+
+    def move_selection(self, delta):
+        rows = self.listbox.get_children()
+        if not rows:
+            return
+        cur = self.listbox.get_selected_row()
+        idx = cur.get_index() if cur else 0
+        new_idx = max(0, min(len(rows) - 1, idx + delta))
+        self.listbox.select_row(rows[new_idx])
+        adj = self.scrolled_list.get_vadjustment()
+        alloc = rows[new_idx].get_allocation()
+        adj.clamp_page(alloc.y, alloc.y + alloc.height)
+
+
+def main():
+    win = FastClipboardInspector()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

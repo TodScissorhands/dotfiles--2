@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Fuzzel wrapper: Routes bare `fuzzel` to Yazi-style Application Browser,
+# while passing all arguments directly to /usr/bin/fuzzel.
+
+if [ "$#" -eq 0 ]; then
+  exec /home/tod/.local/bin/fuzzel-apps
+else
+  exec /usr/bin/fuzzel "$@"
+fi

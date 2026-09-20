@@ -1,17 +1,46 @@
-#!/bin/sh
-# System control menu — adapted from BreadOnPenguins/scripts shortcuts-menus/sys.
-# Upstream: dmenu + slock/X11. This version: Fuzzel + swaylock/Sway/Wayland.
+#!/usr/bin/env bash
+# System control menu — Yazi/TUI Command Palette format
 
-case "$(printf '%s\n' lock suspend reboot shutdown logout reload kill \
-        | fuzzel --dmenu --prompt="SYSTEM > " --placeholder="pick an action")" in
+choice=$(printf '%s\n' \
+  "lock	  lock     │ Lock session with swaylock inhibitor      [Super+Escape]" \
+  "suspend	󰤄  suspend  │ Sleep system to RAM (locks screen first)" \
+  "reboot	󰜉  reboot   │ Gracefully restart operating system" \
+  "shutdown	  shutdown │ Safely power off system hardware" \
+  "logout	󰍃  logout   │ Terminate current Sway compositor session" \
+  "reload	󰑐  reload   │ Reload Sway window manager configuration   [Super+Shift+C]" \
+  "kill	󰓛  kill     │ Process killer (search and terminate by PID)" \
+  | fuzzel -d \
+      --prompt="SYS ❯ " \
+      --placeholder="system action..." \
+      --with-nth=2 \
+      --accept-nth=1 \
+      --width=70 \
+      --lines=7 \
+      --minimal-lines \
+      --anchor=top-left \
+      --x-margin=10 \
+      --y-margin=33)
+
+case "$choice" in
     lock)     /home/tod/.local/bin/tod-lock ;;
     suspend)  /home/tod/.local/bin/tod-lock & sleep 1 && systemctl suspend -i ;;
     reboot)   systemctl reboot -i ;;
     shutdown) systemctl poweroff -i ;;
     logout)   swaymsg exit ;;
     reload)   swaymsg reload ;;
-    kill)     ps -u "$USER" -o pid=,comm=,%cpu=,%mem= --sort=-%cpu \
-                  | fuzzel --dmenu --prompt="KILL > " --placeholder="select process" \
-                  | awk '{print $1}' | xargs -r kill ;;
-    *)        exit 0 ;;
+    kill)
+        proc=$(ps -u "$USER" -o pid=,comm=,%cpu=,%mem= --sort=-%cpu \
+              | awk '{printf "%s\t󰅩  %-16s │ CPU: %5s%% · MEM: %5s%%\n", $1, $2, $3, $4}' \
+              | fuzzel -d \
+                  --prompt="KILL ❯ " \
+                  --placeholder="select process to terminate..." \
+                  --with-nth=2 \
+                  --accept-nth=1 \
+                  --width=60 \
+                  --lines=8 \
+                  --anchor=top-left \
+                  --x-margin=10 \
+                  --y-margin=33)
+        [ -n "$proc" ] && kill "$proc" ;;
+    *) exit 0 ;;
 esac

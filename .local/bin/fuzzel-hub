@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Fuzzel Root Command Hub — Yazi/TUI Navigation Entry Point
+
+choice=$(printf '%s\n' \
+  "apps	󰀻  Applications │ Launch desktop software & utilities	[Super+D]" \
+  "clip	󰍜  Clipboard    │ Search clipboard history, snippets & images	[Super+Shift+V]" \
+  "audio	󰕾  Audio Output │ Switch active PipeWire sinks & devices	[Super+O]" \
+  "sys	󰐥  System       │ Lock, suspend, reboot, shutdown & tasks	[Super+X]" \
+  | fuzzel -d \
+      --prompt="HUB ❯ " \
+      --placeholder="select system domain..." \
+      --with-nth 2 \
+      --accept-nth 1 \
+      --width=66 \
+      --lines=4 \
+      --minimal-lines \
+      --anchor=top-left \
+      --x-margin=10 \
+      --y-margin=33)
+
+case "$choice" in
+  apps)  exec /home/tod/.local/bin/fuzzel-apps ;;
+  clip)  exec /home/tod/.local/bin/cliphist-picker ;;
+  audio) exec /home/tod/.local/bin/audio-output ;;
+  sys)   exec /home/tod/.local/bin/sys-menu ;;
+  *)     exit 0 ;;
+esac

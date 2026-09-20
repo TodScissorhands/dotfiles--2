@@ -40,7 +40,7 @@ window#waybar {
     border-radius: 0;
     font-size: 11px;
     margin: 0 2px;
-    padding: 0 4px 1px;
+    padding: 0 4px;
     min-width: 13px;
     transition: none;
 }
@@ -50,18 +50,15 @@ window#waybar {
 }
 
 #workspaces button.focused {
-    color: @light3;
-    border-bottom: 2px solid @light3;
+    color: @accent;
 }
 
 #workspaces button.active {
-    color: @light6;
-    border-bottom: 1px solid @light6;
+    color: @accent;
 }
 
 #workspaces button.urgent {
     color: @critical;
-    border-bottom: 2px solid @critical;
 }
 
 #workspaces button:hover {

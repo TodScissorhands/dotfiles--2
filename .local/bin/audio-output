@@ -1,24 +1,60 @@
-#!/bin/sh
-# Audio output switcher using wpctl + fuzzel.
-# Lists PipeWire audio sinks, marks the default, switches on selection.
+#!/usr/bin/env bash
+# Audio output switcher using wpctl + fuzzel in Yazi/TUI format.
 
-sinks=$(wpctl status | awk '/^Audio$/,/^$/' | sed -n '/Sinks:/,/Sources:/p' | grep '\[vol:')
+sinks=$(python3 -c '
+import subprocess, re, sys
+
+try:
+    raw = subprocess.check_output(
+        "wpctl status | awk \"/^Audio$/,/^$/\" | sed -n \"/Sinks:/,/Sources:/p\" | grep \"\\[vol:\"",
+        shell=True, text=True, stderr=subprocess.DEVNULL
+    )
+except Exception:
+    sys.exit(1)
+
+lines = raw.strip().split("\n")
+if not lines or lines == [""]:
+    sys.exit(1)
+
+for line in lines:
+    if not line.strip(): continue
+    is_default = "*" in line
+    id_m = re.search(r"\b(\d+)\.", line)
+    if not id_m: continue
+    sid = id_m.group(1)
+    
+    vol_m = re.search(r"\[vol:\s*([0-9.]+)?\s*(MUTED)?\]", line)
+    vol_pct = int(float(vol_m.group(1)) * 100) if vol_m and vol_m.group(1) else 0
+    is_muted = "MUTED" in line
+    
+    name = re.sub(r"^.*?[\d]+\.\s+", "", line)
+    name = re.sub(r"\s+\[vol:.*$", "", name).strip()
+    name = name.replace("Ryzen HD Audio Controller ", "")
+    
+    icon = "󰂯" if any(k in name for k in ("Nothing", "Ear", "bluez", "Bluetooth", "AirPods", "Headphone")) else "󰕾"
+    bullet = "●" if is_default else "○"
+    status = "ACTIVE" if is_default else ("MUTED" if is_muted else "READY")
+    
+    left = f"{bullet} {icon} {name:<18}"[:22]
+    right = f"{status:<6} · Vol: {vol_pct:3d}% · Sink #{sid}"
+    print(f"{sid}\t{left} │ {right}")
+')
+
 [ -z "$sinks" ] && exit 1
 
-TAB=$(printf '\t')
-menu=""
-while IFS= read -r line; do
-    id=$(echo "$line" | grep -oP '\b\d+(?=\.)' | head -1)
-    name=$(echo "$line" | sed 's/.*[0-9]\+\. //' | sed 's/ *\[vol:.*//')
-    case "$line" in *\**) prefix="●" ;; *) prefix=" " ;; esac
-    menu="${menu}${prefix} ${name}${TAB}${id}
-"
-done <<EOF
-$sinks
-EOF
+choice=$(printf '%s\n' "$sinks" \
+  | fuzzel -d \
+      --prompt="AUDIO ❯ " \
+      --placeholder="switch default audio sink..." \
+      --with-nth=2 \
+      --accept-nth=1 \
+      --width=58 \
+      --lines=3 \
+      --minimal-lines \
+      --anchor=top-left \
+      --x-margin=10 \
+      --y-margin=33)
 
-choice=$(printf '%s' "$menu" | fuzzel --dmenu --prompt="AUDIO OUTPUT > " --placeholder="pick a sink")
 [ -z "$choice" ] && exit 0
 
-sink_id=$(printf '%s' "$choice" | awk -F'\t' '{print $NF}')
-wpctl set-default "$sink_id"
+wpctl set-default "$choice"

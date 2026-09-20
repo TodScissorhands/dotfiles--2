@@ -96,6 +96,7 @@
   "custom/power": {
     "format": "",
     "tooltip": false,
-    "on-click": "swaynag -t warning --background 2d4244ee --border 3d5557 --border-bottom 247e70 --button-background e2e9e1 --text e2e9e1 --button-text 2d4244 --button-border-size 1 --button-padding 6 -m 'End this session?' -B 'Log out' 'swaymsg exit' -B 'Power off' 'systemctl poweroff'"
+    "on-click": "/home/tod/.local/bin/fuzzel-hub || pkill -x fuzzel",
+    "on-click-right": "pkill -x fuzzel"
   }
 }
