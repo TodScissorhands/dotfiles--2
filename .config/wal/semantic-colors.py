@@ -25,7 +25,7 @@ OUT_FISH = CACHE / "fish-colors.fish"
 OUT_SEMANTIC = CACHE / "semantic-colors.json"
 OUT_FUZZEL = CACHE / "fuzzel.ini"
 OUT_SWAYLOCK = CACHE / "swaylock"
-OUT_YAZI = Path.home() / ".config" / "yazi" / "theme.toml"
+OUT_YAZI = CACHE / "yazi-theme.toml"
 OUT_FIREFOX = CACHE / "firefox-colors.css"
 OUT_RMPC = CACHE / "rmpc-theme.ron"
 
@@ -418,7 +418,7 @@ def write_fuzzel(sem: dict) -> None:
 
 
 def write_yazi(sem: dict) -> None:
-    """Generate ~/.config/yazi/theme.toml with semantic colors."""
+    """Generate ~/.cache/wal/yazi-theme.toml with semantic colors."""
     bg = sem["background"]
     bg_alt = sem["background_alt"]
     fg = sem["foreground"]

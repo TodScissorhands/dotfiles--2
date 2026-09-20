@@ -12,7 +12,7 @@ set $lock /home/tod/.local/bin/tod-lock
 set $term ghostty 
 set $menu fuzzel
 
-font pango:Sans 11
+font pango:GeistMono Nerd Font Mono 11
 gaps inner 2
 gaps outer 2
 default_border pixel 1

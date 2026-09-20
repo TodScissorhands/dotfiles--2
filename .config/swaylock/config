@@ -1,6 +1,6 @@
 image=/home/tod/.cache/current_lock.png
 scaling=fill
-font=Sans
+font=GeistMono Nerd Font Mono
 font-size=16
 indicator-idle-visible
 indicator-radius=68
