@@ -562,6 +562,7 @@ def write_firefox(sem: dict) -> None:
         f"  --uc-color-accent:  {sem['accent']};",
         f"  --uc-color-text:    {sem['foreground']};",
         f"  --uc-color-hover:   {sem['selection_background']};",
+        f"  --uc-tab-hover-text: {sem['accent']};",
         "}"
     ]
     OUT_FIREFOX.write_text("\n".join(lines) + "\n")
