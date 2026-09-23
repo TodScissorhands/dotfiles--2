@@ -39,3 +39,13 @@ desc = "Multi-view: focus next visible view"
 on = [ "<A-S-Tab>" ]
 run = "plugin multi-view focus_prev"
 desc = "Multi-view: focus previous visible view"
+
+[[mgr.prepend_keymap]]
+on = [ "<F5>" ]
+run = "plugin multi-view copy_to"
+desc = "Multi-view: copy selected files to next view"
+
+[[mgr.prepend_keymap]]
+on = [ "<F6>" ]
+run = "plugin multi-view move_to"
+desc = "Multi-view: move selected files to next view"

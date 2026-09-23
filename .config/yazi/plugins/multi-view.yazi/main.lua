@@ -516,6 +516,47 @@ local function focus_prev()
 	focus_slot(target)
 end
 
+local function transfer(operation)
+	-- If multi-view is not active or less than 2 views exist, do nothing cleanly.
+	if not mv or not mv.active or mv.view_count < 2 then return end
+
+	local src_slot = mv.focused_slot
+	local dst_slot = (src_slot % mv.view_count) + 1
+	if src_slot == dst_slot then return end
+
+	local src_id = mv.slots[src_slot]
+	local dst_id = mv.slots[dst_slot]
+	if not src_id or not dst_id or src_id == dst_id then return end
+
+	local src_tab = get_tab_by_id(src_id)
+	local dst_tab = get_tab_by_id(dst_id)
+	if not src_tab or not dst_tab or not dst_tab.current then return end
+
+	-- Collect selected files, or hovered file if nothing is selected
+	local urls = {}
+	for _, file in pairs(src_tab.selected) do
+		urls[#urls + 1] = file.url
+	end
+	if #urls == 0 and src_tab.current.hovered then
+		urls[1] = src_tab.current.hovered.url
+	end
+	if #urls == 0 then return end
+
+	local target_cwd = dst_tab.current.cwd
+	if not target_cwd then return end
+
+	ya.async(function(items, cwd, op)
+		for _, url in ipairs(items) do
+			if url.name then
+				ya.task(op, {
+					from = url,
+					to = cwd:join(url.name),
+				}):spawn()
+			end
+		end
+	end, urls, target_cwd, operation)
+end
+
 local function entry(_, job)
 	local act = job and job.args and job.args[1] or "toggle"
 
@@ -537,6 +578,10 @@ local function entry(_, job)
 		focus_next()
 	elseif act == "focus_prev" then
 		focus_prev()
+	elseif act == "copy_to" then
+		transfer("copy")
+	elseif act == "move_to" then
+		transfer("move")
 	end
 end
 
