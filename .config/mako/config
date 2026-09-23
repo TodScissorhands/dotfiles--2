@@ -1,0 +1,16 @@
+# Mako notification configuration
+# Core styling and typography
+font=GeistMono Nerd Font Mono 10
+width=360
+height=160
+margin=14
+padding=10
+border-size=1
+border-radius=4
+default-timeout=5000
+icons=1
+max-icon-size=48
+layer=top
+
+# Dynamic pywal semantic colors
+include=~/.cache/wal/mako.conf

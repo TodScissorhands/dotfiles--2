@@ -89,6 +89,9 @@ function apply_and_sync
     command rmpc remote set theme "$HOME/.cache/wal/rmpc-theme.ron" >/dev/null 2>&1
     apply_home "$selected_image"
     save_state
+    if pgrep -x mako >/dev/null
+        command makoctl reload >/dev/null 2>&1 &
+    end
     "$lock_sync"; or fail "could not mirror the desktop image to the lockscreen"
     if set -q SWAYSOCK
         swaymsg reload >/dev/null; or fail "could not reload Sway after pywal16 generation"
