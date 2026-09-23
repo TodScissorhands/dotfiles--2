@@ -41,7 +41,9 @@ end
 
 # Bun
 set -gx BUN_INSTALL $HOME/.bun
-set -gx PATH $BUN_INSTALL/bin $PATH
+if not contains $BUN_INSTALL/bin $PATH
+    set -gx PATH $BUN_INSTALL/bin $PATH
+end
 function sqlplus
     rlwrap -a -H ~/.sqlplus_history /usr/bin/sqlplus $argv
 end
