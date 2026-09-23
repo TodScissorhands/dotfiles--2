@@ -1,0 +1,16 @@
+# Open PDFs in Evince based on their filename extension.  This is intentional:
+# some downloaded PDFs are empty or otherwise misidentified as inode/x-empty.
+[opener]
+evince = [
+  { run = "evince %s1", orphan = true, desc = "Open in Evince", for = "unix" },
+]
+
+imv = [
+  { run = "imv %s1", orphan = true, desc = "Open in imv", for = "unix" },
+]
+
+[open]
+prepend_rules = [
+  { url = "*.pdf", use = "evince" },
+  { mime = "image/*", use = "imv" }, 
+]

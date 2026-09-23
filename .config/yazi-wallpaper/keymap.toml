@@ -1,0 +1,17 @@
+# Press g, then m in Yazi to browse currently mounted removable drives.
+[[mgr.prepend_keymap]]
+on = [ "g", "m" ]
+run = "cd /run/media/tod"
+desc = "Go to mounted drives"
+
+# Generated wallpaper-picker keymap overlay directory
+# Yazi reads keymap.toml from YAZI_CONFIG_HOME
+[[mgr.prepend_keymap]]
+on = [ "w" ]
+run = 'shell -- test -f %h && /home/tod/.config/fish/scripts/wallpaper-ctl.fish set-path %h && swaymsg "[title=\"Wallpaper Picker\"] kill"'
+desc = "Set hovered image as wallpaper"
+
+[[mgr.prepend_keymap]]
+on = [ "<Esc>" ]
+run = 'shell -- swaymsg "[title=\"Wallpaper Picker\"] kill"'
+desc = "Close wallpaper picker without selecting"

@@ -1,0 +1,41 @@
+# Press g, then m in Yazi to browse currently mounted removable drives.
+[[mgr.prepend_keymap]]
+on = [ "g", "m" ]
+run = "cd /run/media/tod"
+desc = "Go to mounted drives"
+
+# Multi-View: toggle and focus
+[[mgr.prepend_keymap]]
+on = [ "\\" ]
+run = "plugin multi-view toggle"
+desc = "Toggle multi-view mode"
+
+[[mgr.prepend_keymap]]
+on = [ "<A-Left>" ]
+run = "plugin multi-view focus_left"
+desc = "Multi-view: focus left view"
+
+[[mgr.prepend_keymap]]
+on = [ "<A-Right>" ]
+run = "plugin multi-view focus_right"
+desc = "Multi-view: focus right view"
+
+[[mgr.prepend_keymap]]
+on = [ "<A-Up>" ]
+run = "plugin multi-view focus_up"
+desc = "Multi-view: focus view above"
+
+[[mgr.prepend_keymap]]
+on = [ "<A-Down>" ]
+run = "plugin multi-view focus_down"
+desc = "Multi-view: focus view below"
+
+[[mgr.prepend_keymap]]
+on = [ "<A-Tab>" ]
+run = "plugin multi-view focus_next"
+desc = "Multi-view: focus next visible view"
+
+[[mgr.prepend_keymap]]
+on = [ "<A-S-Tab>" ]
+run = "plugin multi-view focus_prev"
+desc = "Multi-view: focus previous visible view"

@@ -14,4 +14,4 @@ test -d "$themes_dir"; or fail "theme directory does not exist: $themes_dir"
 
 # Ghostty's GTK backend does not support a custom app_id/class. The title is
 # therefore the stable Sway matching surface for the floating picker rule.
-exec ghostty --title='Wallpaper Picker' -e yazi "$themes_dir"
+exec env YAZI_CONFIG_HOME="$HOME/.config/yazi-wallpaper" ghostty --title='Wallpaper Picker' -e yazi "$themes_dir"
