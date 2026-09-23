@@ -19,6 +19,9 @@ application/x-extension-shtml=userapp-Firefox-1J6KV3.desktop
 application/xhtml+xml=userapp-Firefox-1J6KV3.desktop
 application/x-extension-xhtml=userapp-Firefox-1J6KV3.desktop
 application/x-extension-xht=userapp-Firefox-1J6KV3.desktop
+image/png=imv.desktop
+image/jpeg=imv.desktop
+audio/flac=vlc.desktop
 
 [Added Associations]
 x-scheme-handler/http=userapp-Firefox-1J6KV3.desktop;
